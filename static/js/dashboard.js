@@ -431,7 +431,7 @@ class NovaGenDashboard {
         }
         
         try {
-            const response = await fetch(`${this.apiBaseUrl}/satellites/search?q=${encodeURIComponent(query)}&limit=50`);
+            const response = await fetch(`${this.apiBaseUrl}/satellites/search?q=${encodeURIComponent(query)}`);
             const data = await response.json();
             
             this.displaySatelliteList(data.satellites || []);
