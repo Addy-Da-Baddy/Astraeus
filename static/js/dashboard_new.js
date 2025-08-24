@@ -817,9 +817,11 @@ class NovaGenDashboard {
                 </div>
             `;
 
-            // Show view controls and container
+            // Show view controls and container in trajectories tab
             const viewControls = document.getElementById('trajectory-view-controls');
             const viewContainer = document.getElementById('trajectory-view-container');
+            const defaultMessage = document.getElementById('trajectory-default-message');
+            
             if (viewControls) {
                 viewControls.style.display = 'flex';
                 viewControls.classList.add('show');
@@ -830,11 +832,24 @@ class NovaGenDashboard {
             } else {
                 console.error('❌ Trajectory view controls element not found');
             }
+            
             if (viewContainer) {
                 viewContainer.style.display = 'block';
                 console.log('✅ Trajectory view container shown');
             } else {
                 console.error('❌ Trajectory view container element not found');
+            }
+            
+            // Hide default message
+            if (defaultMessage) {
+                defaultMessage.style.display = 'none';
+                console.log('✅ Default message hidden');
+            }
+
+            // Switch to trajectories tab automatically
+            if (typeof switchToTab === 'function') {
+                switchToTab('trajectories');
+                console.log('🚀 Switched to trajectories tab');
             }
 
             // Initialize with 3D view by default
@@ -1482,9 +1497,9 @@ class NovaGenDashboard {
         const canvas = document.getElementById('trajectory-3d-canvas');
         if (!canvas || !this.trajectoryData) return;
 
-        // Clear previous 3D scene
-        while(canvas.firstChild) {
-            canvas.removeChild(canvas.firstChild);
+        // Clear previous 3D scene if exists
+        if (this.trajectory3DRenderer) {
+            this.trajectory3DRenderer.dispose();
         }
 
         // Create 3D scene for trajectory
@@ -1494,6 +1509,9 @@ class NovaGenDashboard {
         const camera = new THREE.PerspectiveCamera(75, canvas.clientWidth / canvas.clientHeight, 0.1, 100000);
         const renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true });
         renderer.setSize(canvas.clientWidth, canvas.clientHeight);
+        
+        // Store renderer for cleanup
+        this.trajectory3DRenderer = renderer;
 
         // Add Earth
         const earthGeometry = new THREE.SphereGeometry(6371, 32, 32);
@@ -1544,11 +1562,15 @@ class NovaGenDashboard {
 
         // Animation loop
         const animate = () => {
-            requestAnimationFrame(animate);
-            earth.rotation.y += 0.001;
-            renderer.render(scene, camera);
+            if (this.trajectory3DRenderer && this.trajectory3DRenderer.domElement) {
+                requestAnimationFrame(animate);
+                earth.rotation.y += 0.001;
+                renderer.render(scene, camera);
+            }
         };
         animate();
+        
+        console.log('✅ 3D trajectory view initialized with animations');
     }
 
     // 2D Trajectory View
@@ -1573,16 +1595,118 @@ class NovaGenDashboard {
         
         console.log(`📐 Canvas size: ${canvas.width}x${canvas.height}`);
 
+        // Animation state
+        let animationFrame = 0;
+        const maxFrames = 60;
+        
+        const animate2D = () => {
+            // Clear canvas with fade effect
+            ctx.fillStyle = 'rgba(10, 10, 10, 0.1)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // Full clear every few frames
+            if (animationFrame % 30 === 0) {
+                ctx.fillStyle = '#0a0a0a';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+            }
+
+            // Draw coordinate system
+            ctx.strokeStyle = `rgba(51, 51, 51, ${0.5 + 0.3 * Math.sin(animationFrame * 0.1)})`;
+            ctx.lineWidth = 1;
+            ctx.setLineDash([5, 5]);
+
+            // Draw animated grid
+            const gridSize = 50;
+            const offset = (animationFrame * 0.5) % gridSize;
+            
+            for (let i = -offset; i <= canvas.width + gridSize; i += gridSize) {
+                ctx.beginPath();
+                ctx.moveTo(i, 0);
+                ctx.lineTo(i, canvas.height);
+                ctx.stroke();
+            }
+            for (let i = -offset; i <= canvas.height + gridSize; i += gridSize) {
+                ctx.beginPath();
+                ctx.moveTo(0, i);
+                ctx.lineTo(canvas.width, i);
+                ctx.stroke();
+            }
+
+            // Draw Earth (center) with pulse effect
+            const centerX = canvas.width / 2;
+            const centerY = canvas.height / 2;
+            const earthRadius = 30 + 5 * Math.sin(animationFrame * 0.15);
+            
+            ctx.setLineDash([]);
+            
+            // Earth glow effect
+            const gradient = ctx.createRadialGradient(centerX, centerY, 0, centerX, centerY, earthRadius + 10);
+            gradient.addColorStop(0, 'rgba(0, 68, 0, 0.8)');
+            gradient.addColorStop(1, 'rgba(0, 255, 0, 0.2)');
+            ctx.fillStyle = gradient;
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, earthRadius + 10, 0, 2 * Math.PI);
+            ctx.fill();
+            
+            // Earth core
+            ctx.fillStyle = '#004400';
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, earthRadius, 0, 2 * Math.PI);
+            ctx.fill();
+            
+            ctx.strokeStyle = `rgba(0, 255, 0, ${0.7 + 0.3 * Math.sin(animationFrame * 0.2)})`;
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            // Draw trajectories with animation
+            this.draw2DTrajectoryPaths(ctx, centerX, centerY, animationFrame);
+
+            // Add labels with glow
+            ctx.shadowColor = '#00ff00';
+            ctx.shadowBlur = 10;
+            ctx.fillStyle = '#00ff00';
+            ctx.font = 'bold 14px JetBrains Mono, monospace';
+            ctx.fillText('2D ORBITAL PROJECTION', 10, 25);
+            
+            ctx.shadowBlur = 5;
+            ctx.fillStyle = '#00ffff';
+            ctx.font = '12px JetBrains Mono, monospace';
+            ctx.fillText('X-Y PLANE VIEW', 10, 45);
+            
+            ctx.shadowBlur = 0;
+            ctx.fillStyle = '#808080';
+            ctx.font = '10px JetBrains Mono, monospace';
+            ctx.fillText(`SCALE: 1px ≈ 200km | FRAME: ${animationFrame}`, 10, canvas.height - 10);
+
+            animationFrame++;
+            if (animationFrame < maxFrames) {
+                requestAnimationFrame(animate2D);
+            } else {
+                // Final static frame
+                this.draw2DTrajectoryViewStatic();
+            }
+        };
+
+        // Start animation
+        animate2D();
+        console.log('🎬 2D trajectory animation started');
+    }
+    
+    // Static 2D view (final frame)
+    draw2DTrajectoryViewStatic() {
+        const canvas = document.getElementById('trajectory-2d-canvas');
+        if (!canvas || !this.trajectoryData) return;
+
+        const ctx = canvas.getContext('2d');
+        
         // Clear canvas
         ctx.fillStyle = '#0a0a0a';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-        // Draw coordinate system
+        // Draw final grid
         ctx.strokeStyle = '#333333';
         ctx.lineWidth = 1;
         ctx.setLineDash([5, 5]);
-
-        // Draw grid
         const gridSize = 50;
         for (let i = 0; i <= canvas.width; i += gridSize) {
             ctx.beginPath();
@@ -1612,16 +1736,16 @@ class NovaGenDashboard {
         ctx.lineWidth = 2;
         ctx.stroke();
 
-        // Draw trajectories
-        this.draw2DTrajectoryPaths(ctx, centerX, centerY);
+        // Draw final trajectories
+        this.draw2DTrajectoryPaths(ctx, centerX, centerY, 0);
 
         // Add labels
         ctx.fillStyle = '#00ff00';
-        ctx.font = '12px JetBrains Mono, monospace';
-        ctx.fillText('2D Orbital Projection (X-Y Plane)', 10, 20);
+        ctx.font = 'bold 14px JetBrains Mono, monospace';
+        ctx.fillText('2D ORBITAL PROJECTION', 10, 25);
         ctx.fillStyle = '#808080';
         ctx.font = '10px JetBrains Mono, monospace';
-        ctx.fillText('Scale: 1 pixel ≈ 200 km', 10, canvas.height - 10);
+        ctx.fillText('STATIC VIEW | Scale: 1 pixel ≈ 200 km', 10, canvas.height - 10);
     }
 
     // Numbers/Data Table View
@@ -1777,7 +1901,7 @@ class NovaGenDashboard {
     }
 
     // Helper method to draw 2D trajectory paths
-    draw2DTrajectoryPaths(ctx, centerX, centerY) {
+    draw2DTrajectoryPaths(ctx, centerX, centerY, animationFrame = 0) {
         const trajectories = this.trajectoryData.predictions || this.trajectoryData.satellite_trajectories || [];
         const colors = ['#00ff00', '#00ffff', '#ffb000', '#ff4444', '#ff00ff'];
         const scale = 0.005; // Scale factor for visualization
@@ -1785,30 +1909,57 @@ class NovaGenDashboard {
         if (Array.isArray(trajectories)) {
             trajectories.forEach((traj, index) => {
                 if (traj.positions && Array.isArray(traj.positions)) {
-                    ctx.strokeStyle = colors[index % colors.length];
-                    ctx.lineWidth = 2;
+                    const color = colors[index % colors.length];
+                    
+                    // Animated line drawing
+                    const progress = animationFrame ? Math.min(1, animationFrame / 30) : 1;
+                    const pointsToShow = Math.floor(traj.positions.length * progress);
+                    
+                    ctx.strokeStyle = color;
+                    ctx.lineWidth = 2 + Math.sin(animationFrame * 0.1 + index) * 0.5;
                     ctx.beginPath();
                     
-                    traj.positions.forEach((pos, posIndex) => {
+                    for (let i = 0; i < pointsToShow; i++) {
+                        const pos = traj.positions[i];
                         const x = centerX + pos.x * scale;
                         const y = centerY + pos.y * scale;
                         
-                        if (posIndex === 0) {
+                        if (i === 0) {
                             ctx.moveTo(x, y);
                         } else {
                             ctx.lineTo(x, y);
                         }
-                    });
+                    }
                     
                     ctx.stroke();
                     
-                    // Draw start point
+                    // Draw animated start point
                     if (traj.positions.length > 0) {
                         const startPos = traj.positions[0];
-                        ctx.fillStyle = colors[index % colors.length];
+                        const radius = 3 + 2 * Math.sin(animationFrame * 0.2 + index);
+                        ctx.fillStyle = color;
                         ctx.beginPath();
-                        ctx.arc(centerX + startPos.x * scale, centerY + startPos.y * scale, 3, 0, 2 * Math.PI);
+                        ctx.arc(centerX + startPos.x * scale, centerY + startPos.y * scale, radius, 0, 2 * Math.PI);
                         ctx.fill();
+                        
+                        // Add glow effect
+                        ctx.shadowColor = color;
+                        ctx.shadowBlur = 10;
+                        ctx.fill();
+                        ctx.shadowBlur = 0;
+                    }
+                    
+                    // Draw current position (animated)
+                    if (pointsToShow > 0 && pointsToShow < traj.positions.length) {
+                        const currentPos = traj.positions[pointsToShow - 1];
+                        const pulseRadius = 4 + 3 * Math.sin(animationFrame * 0.3);
+                        ctx.fillStyle = color;
+                        ctx.shadowColor = color;
+                        ctx.shadowBlur = 15;
+                        ctx.beginPath();
+                        ctx.arc(centerX + currentPos.x * scale, centerY + currentPos.y * scale, pulseRadius, 0, 2 * Math.PI);
+                        ctx.fill();
+                        ctx.shadowBlur = 0;
                     }
                 }
             });
@@ -1817,30 +1968,44 @@ class NovaGenDashboard {
             Object.keys(trajectories).forEach((objectId, index) => {
                 const traj = trajectories[objectId];
                 if (traj.positions && Array.isArray(traj.positions)) {
-                    ctx.strokeStyle = colors[index % colors.length];
-                    ctx.lineWidth = 2;
+                    const color = colors[index % colors.length];
+                    
+                    // Animated line drawing
+                    const progress = animationFrame ? Math.min(1, animationFrame / 30) : 1;
+                    const pointsToShow = Math.floor(traj.positions.length * progress);
+                    
+                    ctx.strokeStyle = color;
+                    ctx.lineWidth = 2 + Math.sin(animationFrame * 0.1 + index) * 0.5;
                     ctx.beginPath();
                     
-                    traj.positions.forEach((pos, posIndex) => {
+                    for (let i = 0; i < pointsToShow; i++) {
+                        const pos = traj.positions[i];
                         const x = centerX + pos.x * scale;
                         const y = centerY + pos.y * scale;
                         
-                        if (posIndex === 0) {
+                        if (i === 0) {
                             ctx.moveTo(x, y);
                         } else {
                             ctx.lineTo(x, y);
                         }
-                    });
+                    }
                     
                     ctx.stroke();
                     
-                    // Draw start point
+                    // Draw animated start point
                     if (traj.positions.length > 0) {
                         const startPos = traj.positions[0];
-                        ctx.fillStyle = colors[index % colors.length];
+                        const radius = 3 + 2 * Math.sin(animationFrame * 0.2 + index);
+                        ctx.fillStyle = color;
                         ctx.beginPath();
-                        ctx.arc(centerX + startPos.x * scale, centerY + startPos.y * scale, 3, 0, 2 * Math.PI);
+                        ctx.arc(centerX + startPos.x * scale, centerY + startPos.y * scale, radius, 0, 2 * Math.PI);
                         ctx.fill();
+                        
+                        // Add glow effect
+                        ctx.shadowColor = color;
+                        ctx.shadowBlur = 10;
+                        ctx.fill();
+                        ctx.shadowBlur = 0;
                     }
                 }
             });

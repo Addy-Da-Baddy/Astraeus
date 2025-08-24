@@ -1,0 +1,478 @@
+w<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Astraeus - Mission Control Access</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            /* Terminal-style color scheme */
+            --terminal-bg: #0a0a0a;
+            --terminal-secondary: #1a1a1a;
+            --terminal-border: #333333;
+            --terminal-green: #00ff00;
+            --terminal-amber: #ffb000;
+            --terminal-red: #ff4444;
+            --terminal-blue: #4d9fff;
+            --terminal-cyan: #00ffff;
+            --terminal-magenta: #ff00ff;
+            --terminal-white: #ffffff;
+            --terminal-gray: #808080;
+            --terminal-dark-gray: #404040;
+        }
+
+        body {
+            font-family: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', 'SF Mono', 'Monaco', 'Inconsolata', 'Roboto Mono', 'Consolas', monospace;
+            background: var(--terminal-bg);
+            color: var(--terminal-white);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* Animated background */
+        .background {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 1;
+        }
+
+        .grid-line {
+            position: absolute;
+            background: var(--terminal-border);
+        }
+
+        .grid-line.horizontal {
+            width: 100%;
+            height: 1px;
+            animation: scan-horizontal 8s linear infinite;
+        }
+
+        .grid-line.vertical {
+            height: 100%;
+            width: 1px;
+            animation: scan-vertical 6s linear infinite;
+        }
+
+        @keyframes scan-horizontal {
+            0% { transform: translateY(-100vh); opacity: 0; }
+            10%, 90% { opacity: 0.3; }
+            100% { transform: translateY(100vh); opacity: 0; }
+        }
+
+        @keyframes scan-vertical {
+            0% { transform: translateX(-100vw); opacity: 0; }
+            10%, 90% { opacity: 0.3; }
+            100% { transform: translateX(100vw); opacity: 0; }
+        }
+
+        /* Login container */
+        .login-container {
+            position: relative;
+            z-index: 10;
+            width: 100%;
+            max-width: 400px;
+            padding: 2rem;
+        }
+
+        .login-card {
+            background: rgba(26, 26, 26, 0.95);
+            border: 1px solid var(--terminal-border);
+            border-radius: 12px;
+            padding: 3rem;
+            backdrop-filter: blur(20px);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .login-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, var(--terminal-green), transparent);
+            animation: scan-top 3s ease-in-out infinite;
+        }
+
+        @keyframes scan-top {
+            0%, 100% { opacity: 0; }
+            50% { opacity: 1; }
+        }
+
+        /* Header */
+        .login-header {
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+
+        .logo {
+            font-size: 2rem;
+            font-weight: 700;
+            color: var(--terminal-green);
+            margin-bottom: 0.5rem;
+            text-shadow: 0 0 10px rgba(0, 255, 0, 0.5);
+        }
+
+        .subtitle {
+            color: var(--terminal-gray);
+            font-size: 0.9rem;
+            margin-bottom: 1rem;
+        }
+
+        .access-level {
+            display: inline-block;
+            background: rgba(255, 68, 68, 0.2);
+            color: var(--terminal-red);
+            padding: 0.25rem 0.75rem;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            border: 1px solid var(--terminal-red);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        /* Form */
+        .login-form {
+            margin-bottom: 2rem;
+        }
+
+        .form-group {
+            margin-bottom: 1.5rem;
+            position: relative;
+        }
+
+        .form-label {
+            display: block;
+            color: var(--terminal-cyan);
+            font-size: 0.9rem;
+            margin-bottom: 0.5rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .form-input {
+            width: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            border: 1px solid var(--terminal-border);
+            border-radius: 6px;
+            padding: 0.75rem 1rem;
+            color: var(--terminal-white);
+            font-family: inherit;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+        }
+
+        .form-input:focus {
+            outline: none;
+            border-color: var(--terminal-green);
+            box-shadow: 0 0 0 2px rgba(0, 255, 0, 0.2);
+            background: rgba(0, 0, 0, 0.7);
+        }
+
+        .form-input::placeholder {
+            color: var(--terminal-gray);
+        }
+
+        .input-icon {
+            position: absolute;
+            right: 0.75rem;
+            top: 2.25rem;
+            color: var(--terminal-gray);
+            cursor: pointer;
+            transition: color 0.3s ease;
+        }
+
+        .input-icon:hover {
+            color: var(--terminal-green);
+        }
+
+        /* Login button */
+        .login-btn {
+            width: 100%;
+            background: linear-gradient(45deg, var(--terminal-green), #00aa00);
+            color: var(--terminal-bg);
+            border: none;
+            border-radius: 8px;
+            padding: 1rem;
+            font-size: 1rem;
+            font-weight: 600;
+            font-family: inherit;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .login-btn:hover {
+            background: linear-gradient(45deg, #00aa00, var(--terminal-green));
+            transform: translateY(-2px);
+            box-shadow: 0 10px 30px rgba(0, 255, 0, 0.3);
+        }
+
+        .login-btn:active {
+            transform: translateY(0);
+        }
+
+        .login-btn:disabled {
+            background: var(--terminal-gray);
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        /* Loading animation */
+        .loading {
+            display: none;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+        }
+
+        .loading::after {
+            content: '';
+            width: 20px;
+            height: 20px;
+            border: 2px solid var(--terminal-bg);
+            border-top: 2px solid transparent;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Alert */
+        .alert {
+            padding: 0.75rem 1rem;
+            border-radius: 6px;
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            opacity: 0;
+            transform: translateY(-10px);
+            transition: all 0.3s ease;
+        }
+
+        .alert.show {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .alert-error {
+            background: rgba(255, 68, 68, 0.2);
+            border: 1px solid var(--terminal-red);
+            color: var(--terminal-red);
+        }
+
+        .alert-success {
+            background: rgba(0, 255, 0, 0.2);
+            border: 1px solid var(--terminal-green);
+            color: var(--terminal-green);
+        }
+
+        /* Footer */
+        .login-footer {
+            text-align: center;
+            color: var(--terminal-gray);
+            font-size: 0.8rem;
+        }
+
+        .demo-info {
+            margin-top: 1rem;
+            padding: 1rem;
+            background: rgba(77, 153, 255, 0.1);
+            border: 1px solid var(--terminal-blue);
+            border-radius: 6px;
+            color: var(--terminal-blue);
+        }
+
+        /* Responsive */
+        @media (max-width: 480px) {
+            .login-container {
+                padding: 1rem;
+            }
+            
+            .login-card {
+                padding: 2rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Animated background -->
+    <div class="background">
+        <div class="grid-line horizontal" style="top: 20%;"></div>
+        <div class="grid-line horizontal" style="top: 60%;"></div>
+        <div class="grid-line vertical" style="left: 30%;"></div>
+        <div class="grid-line vertical" style="left: 70%;"></div>
+    </div>
+
+    <div class="login-container">
+        <div class="login-card">
+            <div class="login-header">
+                <h1 class="logo">ASTRAEUS</h1>
+                <p class="subtitle">Mission Control Access</p>
+                <span class="access-level">Classified Access Required</span>
+            </div>
+
+            <div id="alert" class="alert"></div>
+
+            <form class="login-form" id="loginForm">
+                <div class="form-group">
+                    <label class="form-label" for="username">
+                        <i class="fas fa-user"></i> Username
+                    </label>
+                    <input 
+                        type="text" 
+                        id="username" 
+                        name="username" 
+                        class="form-input" 
+                        placeholder="Enter username"
+                        required
+                        autocomplete="username"
+                    >
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label" for="password">
+                        <i class="fas fa-lock"></i> Password
+                    </label>
+                    <input 
+                        type="password" 
+                        id="password" 
+                        name="password" 
+                        class="form-input" 
+                        placeholder="Enter password"
+                        required
+                        autocomplete="current-password"
+                    >
+                    <i class="fas fa-eye input-icon" id="togglePassword"></i>
+                </div>
+
+                <button type="submit" class="login-btn" id="loginBtn">
+                    <span class="btn-text">
+                        <i class="fas fa-rocket"></i> Launch Mission Control
+                    </span>
+                    <div class="loading" id="loading"></div>
+                </button>
+            </form>
+
+            <div class="login-footer">
+                <p>Secure access to orbital surveillance system</p>
+                <div class="demo-info">
+                    <strong>Demo Access:</strong><br>
+                    Username: <code>admin</code><br>
+                    Password: <code>astraeus2025</code>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Password toggle
+        document.getElementById('togglePassword').addEventListener('click', function() {
+            const password = document.getElementById('password');
+            const icon = this;
+            
+            if (password.type === 'password') {
+                password.type = 'text';
+                icon.classList.remove('fa-eye');
+                icon.classList.add('fa-eye-slash');
+            } else {
+                password.type = 'password';
+                icon.classList.remove('fa-eye-slash');
+                icon.classList.add('fa-eye');
+            }
+        });
+
+        // Form submission
+        document.getElementById('loginForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            const loginBtn = document.getElementById('loginBtn');
+            const loading = document.getElementById('loading');
+            const btnText = document.querySelector('.btn-text');
+            const alert = document.getElementById('alert');
+
+            // Show loading state
+            loginBtn.disabled = true;
+            btnText.style.opacity = '0';
+            loading.style.display = 'block';
+
+            try {
+                const response = await fetch('/api/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ username, password })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    showAlert('Access granted! Launching mission control...', 'success');
+                    
+                    // Redirect to dashboard after short delay
+                    setTimeout(() => {
+                        window.location.href = '/dashboard';
+                    }, 1500);
+                } else {
+                    showAlert(data.message || 'Access denied. Invalid credentials.', 'error');
+                    resetForm();
+                }
+            } catch (error) {
+                showAlert('Connection error. Please try again.', 'error');
+                resetForm();
+            }
+        });
+
+        function showAlert(message, type) {
+            const alert = document.getElementById('alert');
+            alert.textContent = message;
+            alert.className = `alert alert-${type} show`;
+            
+            setTimeout(() => {
+                alert.classList.remove('show');
+            }, 5000);
+        }
+
+        function resetForm() {
+            const loginBtn = document.getElementById('loginBtn');
+            const loading = document.getElementById('loading');
+            const btnText = document.querySelector('.btn-text');
+            
+            loginBtn.disabled = false;
+            btnText.style.opacity = '1';
+            loading.style.display = 'none';
+        }
+
+        // Auto-focus username field
+        document.addEventListener('DOMContentLoaded', () => {
+            document.getElementById('username').focus();
+        });
+    </script>
+</body>
+</html>

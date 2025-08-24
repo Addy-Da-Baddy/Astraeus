@@ -1,5 +1,5 @@
 # app.py - Flask Web API for NovaGen Orbital Collision Risk System
-from flask import Flask, render_template, jsonify, request
+from flask import Flask, render_template, jsonify, request, session, redirect, url_for
 from flask_cors import CORS
 import json
 import numpy as np
@@ -26,6 +26,14 @@ def convert_numpy_types(obj):
 
 app = Flask(__name__)
 CORS(app)
+
+# Secret key for sessions (in production, use environment variable)
+app.secret_key = 'astraeus_orbital_collision_prediction_2025'
+
+# Demo credentials (in production, use proper authentication)
+DEMO_CREDENTIALS = {
+    'admin': 'astraeus2025'
+}
 
 # Global variables for real-time data
 predictor = None
@@ -117,12 +125,53 @@ def update_data():
 
 @app.route('/')
 def index():
-    """Serve the main dashboard"""
-    return render_template('index.html')
+    """Serve the landing page"""
+    return render_template('landing.html')
+
+@app.route('/login')
+def login_page():
+    """Serve the login page"""
+    return render_template('login.html')
+
+@app.route('/api/login', methods=['POST'])
+def login():
+    """Handle login authentication"""
+    try:
+        data = request.get_json()
+        username = data.get('username')
+        password = data.get('password')
+        
+        # Check credentials
+        if username in DEMO_CREDENTIALS and DEMO_CREDENTIALS[username] == password:
+            session['authenticated'] = True
+            session['username'] = username
+            return jsonify({
+                'success': True,
+                'message': 'Authentication successful'
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'message': 'Invalid username or password'
+            }), 401
+            
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': 'Authentication error'
+        }), 500
+
+@app.route('/logout')
+def logout():
+    """Handle logout"""
+    session.clear()
+    return redirect(url_for('index'))
 
 @app.route('/dashboard')
 def dashboard():
-    """Serve the advanced dashboard"""
+    """Serve the advanced dashboard (protected route)"""
+    if not session.get('authenticated'):
+        return redirect(url_for('login_page'))
     return render_template('dashboard_new.html')
 
 @app.route('/api/status')

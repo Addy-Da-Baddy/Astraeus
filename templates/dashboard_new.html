@@ -342,6 +342,74 @@
             min-width: auto;
         }
 
+        /* Trajectory View Transitions */
+        #trajectory-view-container > div {
+            transition: all 0.5s ease-in-out;
+            opacity: 0;
+            transform: scale(0.95);
+        }
+
+        #trajectory-view-container > div.active {
+            opacity: 1;
+            transform: scale(1);
+        }
+
+        #trajectory-view-container > div.fadeIn {
+            animation: fadeInScale 0.6s ease-out forwards;
+        }
+
+        #trajectory-view-container > div.fadeOut {
+            animation: fadeOutScale 0.3s ease-in forwards;
+        }
+
+        @keyframes fadeInScale {
+            0% {
+                opacity: 0;
+                transform: scale(0.9) translateY(20px);
+            }
+            100% {
+                opacity: 1;
+                transform: scale(1) translateY(0);
+            }
+        }
+
+        @keyframes fadeOutScale {
+            0% {
+                opacity: 1;
+                transform: scale(1) translateY(0);
+            }
+            100% {
+                opacity: 0;
+                transform: scale(0.9) translateY(-20px);
+            }
+        }
+
+        /* Enhanced 2D Canvas Styling */
+        #trajectory-2d-view {
+            background: linear-gradient(45deg, var(--terminal-secondary), rgba(26, 26, 26, 0.8));
+            border: 1px solid var(--terminal-border);
+        }
+
+        #trajectory-2d-canvas {
+            box-shadow: inset 0 0 20px rgba(0, 255, 0, 0.1);
+            border: 1px solid var(--terminal-green);
+        }
+
+        /* Enhanced Data Table Styling */
+        #trajectory-numbers-view {
+            background: linear-gradient(135deg, var(--terminal-secondary), rgba(26, 26, 26, 0.9));
+            border: 1px solid var(--terminal-border);
+        }
+
+        #trajectory-data-table {
+            border-collapse: collapse;
+            box-shadow: 0 0 20px rgba(0, 255, 0, 0.1);
+        }
+
+        #trajectory-data-table tbody tr:hover {
+            background: rgba(0, 255, 0, 0.1);
+        }
+
         /* 3D Visualization */
         .viz-container {
             position: relative;
@@ -711,9 +779,15 @@
             <i class="fas fa-satellite" style="color: var(--primary-color); font-size: 2rem;"></i>
             <h1>ASTRAEUS</h1>
         </div>
-        <div class="status-indicator">
-            <div class="status-dot"></div>
-            <span>System Online</span>
+        <div style="display: flex; align-items: center; gap: 2rem;">
+            <div class="status-indicator">
+                <div class="status-dot"></div>
+                <span>System Online</span>
+            </div>
+            <a href="/logout" class="btn btn-outline" style="padding: 0.5rem 1rem; font-size: 0.9rem;" title="Exit Mission Control">
+                <i class="fas fa-sign-out-alt"></i>
+                <span>Logout</span>
+            </a>
         </div>
     </div>
 
@@ -959,60 +1033,15 @@
                     <div class="card">
                         <div class="card-header">
                             <h3 class="card-title">Trajectory Prediction</h3>
-                            <div style="display: flex; gap: 1rem; align-items: center;">
-                                <button class="btn btn-success" onclick="runTrajectoryPrediction()">
-                                    <i class="fas fa-rocket"></i>
-                                    Generate Trajectories
-                                </button>
-                                <div id="trajectory-view-controls" style="display: none;" class="trajectory-controls">
-                                    <label style="color: var(--text-secondary); font-size: 0.9rem;">View:</label>
-                                    <select id="trajectory-view-mode" onchange="switchTrajectoryView()" style="background: var(--terminal-secondary); color: var(--text-primary); border: 1px solid var(--terminal-border); padding: 0.25rem 0.5rem; border-radius: 4px; font-family: inherit;">
-                                        <option value="3d">3D Visualization</option>
-                                        <option value="2d">2D Projection</option>
-                                        <option value="numbers">Data Table</option>
-                                    </select>
-                                    <button class="btn btn-outline" onclick="downloadTrajectoryData()" title="Download trajectory data">
-                                        <i class="fas fa-download"></i>
-                                    </button>
-                                </div>
-                            </div>
+                            <button class="btn btn-success" onclick="runTrajectoryPrediction()">
+                                <i class="fas fa-rocket"></i>
+                                Generate Trajectories
+                            </button>
                         </div>
                         <div id="trajectory-results">
                             <div style="text-align: center; padding: 2rem; color: var(--text-secondary);">
-                                Click "Generate Trajectories" to predict orbital paths
-                            </div>
-                        </div>
-                        
-                        <!-- Trajectory View Container -->
-                        <div id="trajectory-view-container" style="display: none;">
-                            <!-- 3D View -->
-                            <div id="trajectory-3d-view" style="width: 100%; height: 500px; position: relative;">
-                                <canvas id="trajectory-3d-canvas" style="width: 100%; height: 100%; border-radius: 8px;"></canvas>
-                            </div>
-                            
-                            <!-- 2D View -->
-                            <div id="trajectory-2d-view" style="display: none; width: 100%; height: 500px; background: var(--terminal-secondary); border-radius: 8px; padding: 1rem;">
-                                <canvas id="trajectory-2d-canvas" style="width: 100%; height: 100%; border-radius: 4px;"></canvas>
-                            </div>
-                            
-                            <!-- Numbers/Data Table View -->
-                            <div id="trajectory-numbers-view" style="display: none; max-height: 500px; overflow-y: auto; background: var(--terminal-secondary); border-radius: 8px; padding: 1rem;">
-                                <table id="trajectory-data-table" style="width: 100%; font-family: 'JetBrains Mono', monospace; font-size: 0.85rem; color: var(--text-primary);">
-                                    <thead style="background: var(--terminal-border); color: var(--terminal-green);">
-                                        <tr>
-                                            <th style="padding: 0.5rem; border: 1px solid var(--terminal-border);">Object ID</th>
-                                            <th style="padding: 0.5rem; border: 1px solid var(--terminal-border);">Time (UTC)</th>
-                                            <th style="padding: 0.5rem; border: 1px solid var(--terminal-border);">X (km)</th>
-                                            <th style="padding: 0.5rem; border: 1px solid var(--terminal-border);">Y (km)</th>
-                                            <th style="padding: 0.5rem; border: 1px solid var(--terminal-border);">Z (km)</th>
-                                            <th style="padding: 0.5rem; border: 1px solid var(--terminal-border);">Velocity (km/s)</th>
-                                            <th style="padding: 0.5rem; border: 1px solid var(--terminal-border);">Altitude (km)</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody id="trajectory-data-tbody">
-                                        <!-- Data will be populated here -->
-                                    </tbody>
-                                </table>
+                                Click "Generate Trajectories" to predict orbital paths<br>
+                                <small style="color: var(--terminal-green);">View results in the Trajectories tab</small>
                             </div>
                         </div>
                     </div>
@@ -1079,23 +1108,81 @@
                     <!-- Trajectory Visualization -->
                     <div class="card" style="grid-column: span 2;">
                         <div class="card-header">
-                            <h3 class="card-title">3D Trajectory Visualization</h3>
-                            <div>
-                                <button class="btn btn-success" onclick="runTrajectoryPrediction()">
-                                    <i class="fas fa-rocket"></i>
-                                    Generate New
-                                </button>
-                                <button class="btn btn-outline" onclick="clearTrajectories()">
-                                    <i class="fas fa-eraser"></i>
-                                    Clear All
-                                </button>
-                                <button class="btn btn-primary" onclick="window.dashboard.showTrajectoryAnalysis()">
-                                    <i class="fas fa-chart-line"></i>
-                                    Analysis
-                                </button>
+                            <h3 class="card-title">Trajectory Visualization</h3>
+                            <div style="display: flex; gap: 1rem; align-items: center; flex-wrap: wrap;">
+                                <!-- View Mode Toggle -->
+                                <div id="trajectory-view-controls" style="display: none;" class="trajectory-controls">
+                                    <label style="color: var(--text-secondary); font-size: 0.9rem;">View:</label>
+                                    <select id="trajectory-view-mode" onchange="switchTrajectoryView()" style="background: var(--terminal-secondary); color: var(--text-primary); border: 1px solid var(--terminal-border); padding: 0.25rem 0.5rem; border-radius: 4px; font-family: inherit;">
+                                        <option value="3d">3D Visualization</option>
+                                        <option value="2d">2D Projection</option>
+                                        <option value="numbers">Data Table</option>
+                                    </select>
+                                    <button class="btn btn-outline" onclick="downloadTrajectoryData()" title="Download trajectory data" style="padding: 0.5rem;">
+                                        <i class="fas fa-download"></i>
+                                    </button>
+                                </div>
+                                
+                                <!-- Action Buttons -->
+                                <div style="display: flex; gap: 0.5rem;">
+                                    <button class="btn btn-success" onclick="runTrajectoryPrediction()">
+                                        <i class="fas fa-rocket"></i>
+                                        Generate New
+                                    </button>
+                                    <button class="btn btn-outline" onclick="clearTrajectories()">
+                                        <i class="fas fa-eraser"></i>
+                                        Clear All
+                                    </button>
+                                    <button class="btn btn-primary" onclick="window.dashboard.showTrajectoryAnalysis()">
+                                        <i class="fas fa-chart-line"></i>
+                                        Analysis
+                                    </button>
+                                </div>
                             </div>
                         </div>
-                        <div class="viz-container" id="trajectory-container" style="height: 500px;">
+                        
+                        <!-- Trajectory View Container -->
+                        <div id="trajectory-view-container" style="position: relative; height: 500px;">
+                            <!-- Default Message -->
+                            <div id="trajectory-default-message" style="display: flex; align-items: center; justify-content: center; height: 100%; color: var(--text-secondary); flex-direction: column; text-align: center;">
+                                <i class="fas fa-satellite-dish" style="font-size: 3rem; margin-bottom: 1rem; opacity: 0.5;"></i>
+                                <h3>Orbital Trajectory Visualization</h3>
+                                <p>Click "Generate New" to predict and visualize satellite trajectories</p>
+                            </div>
+                            
+                            <!-- 3D View -->
+                            <div id="trajectory-3d-view" style="display: none; width: 100%; height: 100%; position: absolute; top: 0; left: 0;">
+                                <canvas id="trajectory-3d-canvas" style="width: 100%; height: 100%; border-radius: 8px;"></canvas>
+                            </div>
+                            
+                            <!-- 2D View -->
+                            <div id="trajectory-2d-view" style="display: none; width: 100%; height: 100%; position: absolute; top: 0; left: 0; background: var(--terminal-secondary); border-radius: 8px; padding: 1rem;">
+                                <canvas id="trajectory-2d-canvas" style="width: calc(100% - 2rem); height: calc(100% - 2rem); border-radius: 4px; background: var(--terminal-bg);"></canvas>
+                            </div>
+                            
+                            <!-- Numbers/Data Table View -->
+                            <div id="trajectory-numbers-view" style="display: none; width: 100%; height: 100%; position: absolute; top: 0; left: 0; overflow-y: auto; background: var(--terminal-secondary); border-radius: 8px; padding: 1rem;">
+                                <table id="trajectory-data-table" style="width: 100%; font-family: 'JetBrains Mono', monospace; font-size: 0.85rem; color: var(--text-primary);">
+                                    <thead style="background: var(--terminal-border); color: var(--terminal-green);">
+                                        <tr>
+                                            <th style="padding: 0.5rem; border: 1px solid var(--terminal-border);">Object ID</th>
+                                            <th style="padding: 0.5rem; border: 1px solid var(--terminal-border);">Time (UTC)</th>
+                                            <th style="padding: 0.5rem; border: 1px solid var(--terminal-border);">X (km)</th>
+                                            <th style="padding: 0.5rem; border: 1px solid var(--terminal-border);">Y (km)</th>
+                                            <th style="padding: 0.5rem; border: 1px solid var(--terminal-border);">Z (km)</th>
+                                            <th style="padding: 0.5rem; border: 1px solid var(--terminal-border);">Velocity (km/s)</th>
+                                            <th style="padding: 0.5rem; border: 1px solid var(--terminal-border);">Altitude (km)</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="trajectory-data-tbody">
+                                        <!-- Data will be populated here -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                        
+                        <!-- Legacy container (hidden) -->
+                        <div class="viz-container" id="trajectory-container" style="height: 500px; display: none;">
                             <div style="display: flex; align-items: center; justify-content: center; height: 100%; color: var(--text-secondary); flex-direction: column; text-align: center;">
                                 <i class="fas fa-satellite-dish" style="font-size: 3rem; margin-bottom: 1rem; opacity: 0.5;"></i>
                                 <h3>Orbital Trajectory Visualization</h3>
@@ -1439,42 +1526,84 @@
             const viewMode = document.getElementById('trajectory-view-mode').value;
             console.log('📊 Selected view mode:', viewMode);
             
+            const defaultMessage = document.getElementById('trajectory-default-message');
             const view3d = document.getElementById('trajectory-3d-view');
             const view2d = document.getElementById('trajectory-2d-view');
             const viewNumbers = document.getElementById('trajectory-numbers-view');
             
             console.log('📋 Elements found:', {
+                defaultMessage: !!defaultMessage,
                 view3d: !!view3d,
                 view2d: !!view2d, 
                 viewNumbers: !!viewNumbers
             });
             
-            // Hide all views
-            if (view3d) view3d.style.display = 'none';
-            if (view2d) view2d.style.display = 'none';
-            if (viewNumbers) viewNumbers.style.display = 'none';
+            // Hide default message
+            if (defaultMessage) {
+                defaultMessage.style.display = 'none';
+            }
             
-            // Show selected view
+            // Get current active view
+            const currentActive = document.querySelector('#trajectory-view-container > div[style*="display: block"], #trajectory-view-container > div.active');
+            
+            // Function to show new view with animation
+            function showView(newView, callback) {
+                if (currentActive && currentActive !== newView) {
+                    // Fade out current view
+                    currentActive.classList.add('fadeOut');
+                    currentActive.classList.remove('active');
+                    
+                    setTimeout(() => {
+                        currentActive.style.display = 'none';
+                        currentActive.classList.remove('fadeOut');
+                        
+                        // Show new view
+                        if (newView) {
+                            newView.style.display = 'block';
+                            newView.classList.add('fadeIn', 'active');
+                            
+                            setTimeout(() => {
+                                newView.classList.remove('fadeIn');
+                                if (callback) callback();
+                            }, 600);
+                        }
+                    }, 300);
+                } else if (newView) {
+                    // Direct show if no current view
+                    newView.style.display = 'block';
+                    newView.classList.add('fadeIn', 'active');
+                    
+                    setTimeout(() => {
+                        newView.classList.remove('fadeIn');
+                        if (callback) callback();
+                    }, 600);
+                }
+            }
+            
+            // Switch to selected view
             if (viewMode === '3d') {
-                if (view3d) view3d.style.display = 'block';
-                if (window.dashboard && window.dashboard.trajectoryData) {
-                    console.log('🎯 Calling show3DTrajectoryView');
-                    window.dashboard.show3DTrajectoryView();
-                }
+                showView(view3d, () => {
+                    if (window.dashboard && window.dashboard.trajectoryData) {
+                        console.log('🎯 Calling show3DTrajectoryView');
+                        window.dashboard.show3DTrajectoryView();
+                    }
+                });
             } else if (viewMode === '2d') {
-                if (view2d) view2d.style.display = 'block';
-                if (window.dashboard && window.dashboard.trajectoryData) {
-                    console.log('🎯 Calling show2DTrajectoryView');
-                    window.dashboard.show2DTrajectoryView();
-                } else {
-                    console.error('❌ Dashboard or trajectory data not available');
-                }
+                showView(view2d, () => {
+                    if (window.dashboard && window.dashboard.trajectoryData) {
+                        console.log('🎯 Calling show2DTrajectoryView');
+                        window.dashboard.show2DTrajectoryView();
+                    } else {
+                        console.error('❌ Dashboard or trajectory data not available');
+                    }
+                });
             } else if (viewMode === 'numbers') {
-                if (viewNumbers) viewNumbers.style.display = 'block';
-                if (window.dashboard && window.dashboard.trajectoryData) {
-                    console.log('🎯 Calling showNumbersTrajectoryView');
-                    window.dashboard.showNumbersTrajectoryView();
-                }
+                showView(viewNumbers, () => {
+                    if (window.dashboard && window.dashboard.trajectoryData) {
+                        console.log('🎯 Calling showNumbersTrajectoryView');
+                        window.dashboard.showNumbersTrajectoryView();
+                    }
+                });
             }
         }
 
