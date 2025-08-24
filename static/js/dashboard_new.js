@@ -22,10 +22,102 @@ class NovaGenDashboard {
         this.smoothDistanceAlpha = 0.15;
         this.zoomGestureActive = false;
         this._wheelCooldown = null;
+        this.trajectoryViewMode = '3d';
         
         this.init();
     }
 
+    switchTrajectoryView(mode) {
+        this.trajectoryViewMode = mode === 'static' ? 'static' : '3d';
+        if (this.trajectoryViewMode === '3d') {
+            this.initializeTrajectoryVisualization();
+        } else {
+            this.renderStaticTrajectoryPlot();
+        }
+    }
+
+    async renderStaticTrajectoryPlot() {
+        const container = document.getElementById('trajectory-container');
+        if (!container || !this.trajectoryData) return;
+        container.innerHTML = '<div style="text-align: center; padding: 2rem;"><div class="loading"></div><p>Rendering static plot...</p></div>';
+        try {
+            const predictions = this.trajectoryData.satellite_trajectories || this.trajectoryData.predictions || [];
+            const response = await fetch(`${this.apiBaseUrl}/trajectory-plot`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ predictions })
+            });
+            const data = await response.json();
+            if (data && data.success && data.plot_image) {
+                const img = new Image();
+                img.src = `data:image/png;base64,${data.plot_image}`;
+                img.style.width = '100%';
+                img.style.height = '100%';
+                img.style.objectFit = 'contain';
+                container.innerHTML = '';
+                container.appendChild(img);
+            } else {
+                container.innerHTML = '<div style="text-align: center; padding: 2rem; color: var(--danger-color);">Failed to render plot</div>';
+            }
+        } catch (e) {
+            container.innerHTML = '<div style="text-align: center; padding: 2rem; color: var(--danger-color);">Error rendering plot</div>';
+        }
+    }
+
+    async downloadTrajectoryCSV() {
+        try {
+            const predictions = (this.trajectoryData && (this.trajectoryData.satellite_trajectories || this.trajectoryData.predictions)) || [];
+            const response = await fetch(`${this.apiBaseUrl}/trajectory-download`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ predictions })
+            });
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'trajectory_predictions.csv';
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            window.URL.revokeObjectURL(url);
+            this.showAlert('Download started', 'success');
+        } catch (e) {
+            this.showAlert('Failed to download CSV', 'danger');
+        }
+    }
+
+    async downloadTrajectoryPlot() {
+        try {
+            const predictions = (this.trajectoryData && (this.trajectoryData.satellite_trajectories || this.trajectoryData.predictions)) || [];
+            const response = await fetch(`${this.apiBaseUrl}/trajectory-plot`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ predictions })
+            });
+            const data = await response.json();
+            if (data && data.success && data.plot_image) {
+                const byteCharacters = atob(data.plot_image);
+                const byteNumbers = new Array(byteCharacters.length);
+                for (let i = 0; i < byteCharacters.length; i++) byteNumbers[i] = byteCharacters.charCodeAt(i);
+                const byteArray = new Uint8Array(byteNumbers);
+                const blob = new Blob([byteArray], { type: 'image/png' });
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'trajectory_plot.png';
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                window.URL.revokeObjectURL(url);
+                this.showAlert('Download started', 'success');
+            } else {
+                this.showAlert('Failed to prepare plot image', 'danger');
+            }
+        } catch (e) {
+            this.showAlert('Failed to download plot', 'danger');
+        }
+    }
     async init() {
         await this.initializeVisualization();
         await this.startRealTimeUpdates();
@@ -452,7 +544,7 @@ class NovaGenDashboard {
 
     async loadSatelliteList() {
         try {
-            const response = await fetch(`${this.apiBaseUrl}/satellites/search?limit=50`);
+            const response = await fetch(`${this.apiBaseUrl}/satellites/search`);
             const data = await response.json();
             
             this.satelliteList = data.satellites || [];
@@ -903,13 +995,8 @@ class NovaGenDashboard {
                         <span>${new Date().toLocaleTimeString()}</span>
                     </div>
                 </div>
-                <div style="display: flex; gap: 1rem; justify-content: center;">
-                    <button class="btn btn-primary" onclick="window.dashboard.showTrajectoriesIn3D()">
-                        <i class="fas fa-cube"></i> View in 3D
-                    </button>
-                    <button class="btn btn-outline" onclick="window.dashboard.showTrajectoryAnalysis()">
-                        <i class="fas fa-chart-line"></i> Analysis
-                    </button>
+                <div style="display: flex; gap: 0.5rem; justify-content: center; flex-wrap: wrap;">
+                    <button class="btn btn-primary" onclick="switchToTab('trajectories')"><i class="fas fa-location-arrow"></i> Open in Trajectories</button>
                 </div>
             `;
 
@@ -917,6 +1004,9 @@ class NovaGenDashboard {
             this.initializeTrajectoryVisualization();
             this.updateTrajectoryStatistics();
             this.showAlert('✅ Trajectory predictions completed', 'success');
+            if (typeof switchToTab === 'function') {
+                switchToTab('trajectories');
+            }
             
         } catch (error) {
             console.error('Trajectory prediction error:', error);

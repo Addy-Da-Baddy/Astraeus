@@ -1,5 +1,5 @@
 # app.py - Flask Web API for NovaGen Orbital Collision Risk System
-from flask import Flask, render_template, jsonify, request, session, redirect, url_for
+from flask import Flask, render_template, jsonify, request, session, redirect, url_for, Response
 from flask_cors import CORS
 import json
 import numpy as np
@@ -552,7 +552,7 @@ def api_search_satellites():
         risk_level = request.args.get('risk_level', '').upper()
         altitude_min = request.args.get('altitude_min', type=float)
         altitude_max = request.args.get('altitude_max', type=float)
-        limit = request.args.get('limit', 50, type=int)
+        limit = 999999
         
         if predictor is None:
             return jsonify({'error': 'Predictor not initialized'}), 400
@@ -835,51 +835,39 @@ def api_trajectory_bulk():
 
 @app.route('/api/trajectory-plot', methods=['POST'])
 def api_trajectory_plot():
-    """Generate matplotlib trajectory plot image"""
     try:
         if predictor is None:
             return jsonify({'error': 'Predictor not initialized'}), 400
-            
-        # Get fresh data
-        features_df = get_latest_features("active_satellites", label=0)
-        
-        if features_df is None or len(features_df) == 0:
-            return jsonify({'error': 'No satellite data available'}), 400
-        
-        # Limit to first 10 satellites for clear visualization
-        limited_df = features_df.head(10)
-        
-        print(f"📊 Generating matplotlib trajectory plot for {len(limited_df)} satellites...")
-        
-        # Generate trajectory data
+        client_data = request.get_json(silent=True) or {}
+        posted_predictions = client_data.get('predictions')
         trajectories = []
-        for idx, row in limited_df.iterrows():
-            # Get current orbital parameters
-            altitude = float(row.get('altitude', 400))
-            inclination = float(row.get('inclination', 0)) * np.pi / 180
-            
-            # Generate trajectory points
-            trajectory_points = []
-            for i in range(20):
-                t = i * 600  # 10-minute intervals
-                orbital_period = 2 * np.pi * np.sqrt((altitude + 6371)**3 / 398600.4418)
-                angular_velocity = 2 * np.pi / orbital_period
-                angle = angular_velocity * t
-                radius = altitude + 6371
-                
-                trajectory_points.append({
-                    'x': radius * np.cos(angle) * np.cos(inclination),
-                    'y': radius * np.sin(angle) * np.sin(inclination),
-                    'z': radius * np.sin(angle) * np.cos(inclination)
-                })
-            
-            trajectories.append({
-                'satellite_id': idx,
-                'points': trajectory_points,
-                'is_debris': bool(row.get('label', 0) == 1)
-            })
-        
-        # Create matplotlib plot
+        if posted_predictions and isinstance(posted_predictions, list):
+            for i, pred in enumerate(posted_predictions[:10]):
+                traj = pred.get('trajectory') or pred.get('points') or []
+                points = []
+                for p in traj:
+                    x = float(p.get('x', 0))
+                    y = float(p.get('y', 0))
+                    z = float(p.get('z', 0))
+                    points.append({'x': x, 'y': y, 'z': z})
+                trajectories.append({'satellite_id': int(pred.get('satellite_id', i)), 'points': points, 'is_debris': bool(pred.get('is_debris', False))})
+        else:
+            features_df = get_latest_features("active_satellites", label=0)
+            if features_df is None or len(features_df) == 0:
+                return jsonify({'error': 'No satellite data available'}), 400
+            limited_df = features_df.head(10)
+            for idx, row in limited_df.iterrows():
+                altitude = float(row.get('altitude', 400))
+                inclination = float(row.get('inclination', 0)) * np.pi / 180
+                trajectory_points = []
+                for i in range(20):
+                    t = i * 600
+                    orbital_period = 2 * np.pi * np.sqrt((altitude + 6371)**3 / 398600.4418)
+                    angular_velocity = 2 * np.pi / orbital_period
+                    angle = angular_velocity * t
+                    radius = altitude + 6371
+                    trajectory_points.append({'x': radius * np.cos(angle) * np.cos(inclination), 'y': radius * np.sin(angle) * np.sin(inclination), 'z': radius * np.sin(angle) * np.cos(inclination)})
+                trajectories.append({'satellite_id': int(idx), 'points': trajectory_points, 'is_debris': bool(row.get('label', 0) == 1)})
         plt.style.use('dark_background')
         fig = plt.figure(figsize=(15, 10))
         
@@ -938,7 +926,6 @@ def api_trajectory_plot():
         ax4.set_zlabel('Z (km)', color='#00ff00')
         ax4.set_title('3D Trajectories', color='#00ffff')
         
-        # Plot trajectories
         for i, traj in enumerate(trajectories):
             color = colors[i % len(colors)]
             x_coords = [p['x'] for p in traj['points']]
@@ -987,16 +974,68 @@ def api_trajectory_plot():
         img_base64 = base64.b64encode(img_buffer.read()).decode('utf-8')
         plt.close()
         
-        return jsonify({
-            'success': True,
-            'plot_image': img_base64,
-            'trajectories_count': len(trajectories),
-            'prediction_horizon': 3.3,
-            'timestamp': datetime.now().isoformat()
-        })
+        return jsonify({'success': True, 'plot_image': img_base64, 'trajectories_count': len(trajectories), 'prediction_horizon': 3.3, 'timestamp': datetime.now().isoformat()})
         
     except Exception as e:
         print(f"❌ Trajectory plot generation error: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/trajectory-download', methods=['POST'])
+def api_trajectory_download():
+    try:
+        if predictor is None:
+            return jsonify({'error': 'Predictor not initialized'}), 400
+        client_data = request.get_json(silent=True) or {}
+        posted_predictions = client_data.get('predictions')
+        rows = []
+        if posted_predictions and isinstance(posted_predictions, list):
+            for pred in posted_predictions:
+                sat_id = int(pred.get('satellite_id', -1))
+                is_debris = bool(pred.get('is_debris', False))
+                risk_level = pred.get('risk_level', '')
+                traj = pred.get('trajectory') or []
+                for p in traj:
+                    rows.append({
+                        'satellite_id': sat_id,
+                        'time': float(p.get('time', 0)),
+                        'x': float(p.get('x', 0)),
+                        'y': float(p.get('y', 0)),
+                        'z': float(p.get('z', 0)),
+                        'altitude': float(p.get('altitude', p.get('predicted_altitude', 0))),
+                        'confidence': float(p.get('confidence', 0)),
+                        'is_debris': int(is_debris),
+                        'risk_level': risk_level
+                    })
+        else:
+            features_df = get_latest_features("active_satellites", label=0)
+            if features_df is None or len(features_df) == 0:
+                return jsonify({'error': 'No satellite data available'}), 400
+            limited_df = features_df.head(100)
+            for idx, row in limited_df.iterrows():
+                altitude = float(row.get('altitude', 400))
+                inclination = float(row.get('inclination', 0)) * np.pi / 180
+                for i in range(20):
+                    t = i * 600
+                    orbital_period = 2 * np.pi * np.sqrt((altitude + 6371)**3 / 398600.4418)
+                    angular_velocity = 2 * np.pi / orbital_period
+                    angle = angular_velocity * t
+                    radius = altitude + 6371
+                    x = float(radius * np.cos(angle) * np.cos(inclination))
+                    y = float(radius * np.sin(angle) * np.sin(inclination))
+                    z = float(radius * np.sin(angle) * np.cos(inclination))
+                    rows.append({'satellite_id': int(idx), 'time': float(t), 'x': x, 'y': y, 'z': z, 'altitude': altitude, 'confidence': max(0.0, 0.9 - i * 0.02), 'is_debris': int(row.get('label', 0) == 1), 'risk_level': 'HIGH' if row.get('label', 0) == 1 else 'LOW'})
+        import csv
+        output = io.StringIO()
+        fieldnames = ['satellite_id', 'time', 'x', 'y', 'z', 'altitude', 'confidence', 'is_debris', 'risk_level']
+        writer = csv.DictWriter(output, fieldnames=fieldnames)
+        writer.writeheader()
+        for r in rows:
+            writer.writerow(r)
+        csv_data = output.getvalue()
+        output.close()
+        filename = 'trajectory_predictions.csv'
+        return Response(csv_data, mimetype='text/csv', headers={'Content-Disposition': f'attachment; filename={filename}'})
+    except Exception as e:
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/cache/status')

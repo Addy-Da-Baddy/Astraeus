@@ -956,8 +956,8 @@
                     <!-- Trajectory Visualization -->
                     <div class="card" style="grid-column: span 2;">
                         <div class="card-header">
-                            <h3 class="card-title">3D Trajectory Visualization</h3>
-                            <div>
+                            <h3 class="card-title">Trajectory Visualization</h3>
+                            <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
                                 <button class="btn btn-success" onclick="runTrajectoryPrediction()">
                                     <i class="fas fa-rocket"></i>
                                     Generate New
@@ -966,7 +966,23 @@
                                     <i class="fas fa-eraser"></i>
                                     Clear All
                                 </button>
-                                <button class="btn btn-primary" onclick="window.dashboard.showTrajectoryAnalysis()">
+                                <button class="btn btn-primary" onclick="window.dashboard.switchTrajectoryView('3d')">
+                                    <i class="fas fa-cube"></i>
+                                    3D
+                                </button>
+                                <button class="btn btn-outline" onclick="window.dashboard.switchTrajectoryView('static')">
+                                    <i class="fas fa-image"></i>
+                                    Static Plot
+                                </button>
+                                <button class="btn btn-outline" onclick="window.dashboard.downloadTrajectoryCSV()">
+                                    <i class="fas fa-download"></i>
+                                    Download CSV
+                                </button>
+                                <button class="btn btn-outline" onclick="window.dashboard.downloadTrajectoryPlot()">
+                                    <i class="fas fa-file-image"></i>
+                                    Download Plot
+                                </button>
+                                <button class="btn btn-outline" onclick="window.dashboard.showTrajectoryAnalysis()">
                                     <i class="fas fa-chart-line"></i>
                                     Analysis
                                 </button>
@@ -1265,23 +1281,16 @@
     <script>
         // Tab switching functionality
         function switchToTab(tabName) {
-            // Hide all tab contents
             document.querySelectorAll('.tab-content').forEach(tab => {
                 tab.classList.remove('active');
             });
-            
-            // Remove active class from all nav items
             document.querySelectorAll('.nav-item').forEach(item => {
                 item.classList.remove('active');
             });
-            
-            // Show selected tab
-            document.getElementById(tabName + '-tab').classList.add('active');
-            
-            // Add active class to selected nav item
-            event.target.closest('.nav-item').classList.add('active');
-            
-            // Update dashboard if needed
+            const tabEl = document.getElementById(tabName + '-tab');
+            if (tabEl) tabEl.classList.add('active');
+            const navItem = document.querySelector(`.nav-item[onclick*="${tabName}"]`);
+            if (navItem) navItem.classList.add('active');
             if (window.dashboard) {
                 window.dashboard.currentTab = tabName;
                 window.dashboard.updateVisibility();
