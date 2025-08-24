@@ -1018,140 +1018,383 @@ class NovaGenDashboard {
         const container = document.getElementById('trajectory-container');
         if (!container || !this.trajectoryData) return;
 
+        // Clear container and add controls overlay
+        container.innerHTML = `
+            <div id="trajectory-controls" style="position: absolute; top: 10px; left: 10px; z-index: 1000; background: rgba(0,0,0,0.7); padding: 10px; border-radius: 8px;">
+                <div style="margin-bottom: 5px;">
+                    <button id="focus-earth-btn" style="margin: 2px; padding: 5px 10px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer;">🌍 Earth</button>
+                    <button id="full-view-btn" style="margin: 2px; padding: 5px 10px; background: #ffc107; color: black; border: none; border-radius: 4px; cursor: pointer;">🔭 Full View</button>
+                </div>
+                <div>
+                    <button id="prev-satellite-btn" style="margin: 2px; padding: 5px 10px; background: #6c757d; color: white; border: none; border-radius: 4px; cursor: pointer;">⬅ Prev</button>
+                    <button id="follow-satellite-btn" style="margin: 2px; padding: 5px 10px; background: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer;">🛰 Follow</button>
+                    <button id="next-satellite-btn" style="margin: 2px; padding: 5px 10px; background: #6c757d; color: white; border: none; border-radius: 4px; cursor: pointer;">Next ➡</button>
+                </div>
+            </div>
+            <canvas id="trajectory-canvas"></canvas>
+        `;
+
+        const canvas = document.getElementById('trajectory-canvas');
+        
         // Create trajectory visualization scene
         const scene = new THREE.Scene();
-        const camera = new THREE.PerspectiveCamera(75, container.clientWidth / container.clientHeight, 0.1, 2000);
-        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+        scene.background = new THREE.Color(0x000011);
+        
+        const camera = new THREE.PerspectiveCamera(75, container.clientWidth / container.clientHeight, 0.1, 50000);
+        const renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true });
         
         renderer.setSize(container.clientWidth, container.clientHeight);
-        renderer.setClearColor(0x000000, 0.1);
-        container.innerHTML = '';
-        container.appendChild(renderer.domElement);
-
-        // Add Earth
-        const earthGeometry = new THREE.SphereGeometry(6.371, 64, 64);
+        
+        // Earth with proper scale (radius = 6371 km)
+        const earthRadius = 6371;
+        const earthGeometry = new THREE.SphereGeometry(earthRadius, 64, 64);
         const earthMaterial = new THREE.MeshPhongMaterial({
-            color: 0x6B93D6,
-            transparent: true,
-            opacity: 0.8
+            color: 0x4488bb,
+            transparent: false,
+            opacity: 1.0
         });
         const earth = new THREE.Mesh(earthGeometry, earthMaterial);
         scene.add(earth);
+
+        // Add wireframe overlay for Earth
+        const wireframeGeometry = new THREE.SphereGeometry(earthRadius * 1.01, 32, 32);
+        const wireframeMaterial = new THREE.MeshBasicMaterial({
+            color: 0x44aaff,
+            wireframe: true,
+            transparent: true,
+            opacity: 0.3
+        });
+        const wireframe = new THREE.Mesh(wireframeGeometry, wireframeMaterial);
+        scene.add(wireframe);
 
         // Add lighting
         const ambientLight = new THREE.AmbientLight(0x404040, 0.6);
         scene.add(ambientLight);
         const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
-        directionalLight.position.set(1, 1, 1);
+        directionalLight.position.set(earthRadius * 2, earthRadius, earthRadius * 2);
         scene.add(directionalLight);
 
-        // Add trajectory paths
-        this.addTrajectoryPathsToScene(scene, 1/1000);
+        // Add coordinate axes
+        const axesHelper = new THREE.AxesHelper(earthRadius * 1.5);
+        scene.add(axesHelper);
 
-        // Set camera position
-        camera.position.set(0, 0, 50);
+        // Set initial camera position - nice view of Earth and orbits
+        camera.position.set(earthRadius * 2, earthRadius * 1.5, earthRadius * 2);
         camera.lookAt(0, 0, 0);
 
-        // Add basic mouse controls
-        let mouseX = 0, mouseY = 0;
-        let isMouseDown = false;
-        
-        renderer.domElement.addEventListener('mousedown', (event) => {
-            isMouseDown = true;
-            mouseX = event.clientX;
-            mouseY = event.clientY;
-        });
-        
-        renderer.domElement.addEventListener('mouseup', () => {
-            isMouseDown = false;
-        });
-        
-        renderer.domElement.addEventListener('mousemove', (event) => {
-            if (isMouseDown) {
-                const deltaX = event.clientX - mouseX;
-                const deltaY = event.clientY - mouseY;
-                
-                camera.position.x = camera.position.x * Math.cos(deltaX * 0.01) - camera.position.z * Math.sin(deltaX * 0.01);
-                camera.position.z = camera.position.x * Math.sin(deltaX * 0.01) + camera.position.z * Math.cos(deltaX * 0.01);
-                camera.position.y += deltaY * 0.1;
-                
-                camera.lookAt(0, 0, 0);
-                
-                mouseX = event.clientX;
-                mouseY = event.clientY;
-            }
-        });
-        
-        renderer.domElement.addEventListener('wheel', (event) => {
-            const scale = event.deltaY > 0 ? 1.1 : 0.9;
-            camera.position.multiplyScalar(scale);
-            camera.lookAt(0, 0, 0);
-        });
+        // Add smooth OrbitControls
+        let controls = null;
+        if (THREE.OrbitControls) {
+            controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.05;
+            controls.screenSpacePanning = false;
+            controls.minDistance = earthRadius * 1.5;
+            controls.maxDistance = earthRadius * 8;
+            controls.target.set(0, 0, 0);
+            controls.autoRotate = false;
+            controls.autoRotateSpeed = 0.5;
+        }
+
+        // Add trajectory paths with proper scaling
+        this.addTrajectoryPathsToScene(scene, earthRadius);
 
         // Store references
-        this.trajectoryScene = { scene, camera, renderer };
+        this.trajectoryScene = { scene, camera, renderer, controls, earth, wireframe };
+        this.satellites = [];
+
+        // Control buttons
+        this.currentSatelliteIndex = 0;
+        
+        document.getElementById('focus-earth-btn').onclick = () => {
+            this.focusOnEarth();
+        };
+
+        document.getElementById('follow-satellite-btn').onclick = () => {
+            this.goToCurrentSatellite();
+        };
+
+        document.getElementById('full-view-btn').onclick = () => {
+            this.showFullOrbitView();
+        };
+
+        document.getElementById('prev-satellite-btn').onclick = () => {
+            this.goToPreviousSatellite();
+        };
+
+        document.getElementById('next-satellite-btn').onclick = () => {
+            this.goToNextSatellite();
+        };
 
         // Animation loop
         const animate = () => {
             requestAnimationFrame(animate);
-            earth.rotation.y += 0.005;
+            
+            // Smooth controls update
+            if (controls) controls.update();
+            
+            // Rotate Earth slowly
+            earth.rotation.y += 0.002;
+            wireframe.rotation.y += 0.002;
+            
+            // Animate satellites along trajectories
+            this.animateSatellites();
+            
             renderer.render(scene, camera);
         };
         animate();
 
         // Handle resize
         const handleResize = () => {
-            camera.aspect = container.clientWidth / container.clientHeight;
+            const width = container.clientWidth;
+            const height = container.clientHeight;
+            camera.aspect = width / height;
             camera.updateProjectionMatrix();
-            renderer.setSize(container.clientWidth, container.clientHeight);
+            renderer.setSize(width, height);
         };
         window.addEventListener('resize', handleResize);
+        
+        // Store resize handler for cleanup
+        this.trajectoryScene.handleResize = handleResize;
     }
 
-    addTrajectoryPathsToScene(scene, scale = 1) {
+    addTrajectoryPathsToScene(scene, earthRadius) {
         if (!this.trajectoryData || (!this.trajectoryData.predictions && !this.trajectoryData.satellite_trajectories)) return;
 
-        const colors = [0xff6b6b, 0x4ecdc4, 0x45b7d1, 0x96ceb4, 0xfeca57, 0xff9ff3, 0x54a0ff];
-        let colorIndex = 0;
-
+        const colors = [0xff6b6b, 0x4ecdc4, 0x45b7d1, 0x96ceb4, 0xfeca57, 0xff9ff3, 0x54a0ff, 0x00ff00, 0xffff00, 0xff00ff];
+        
         const trajectories = this.trajectoryData.satellite_trajectories || this.trajectoryData.predictions || [];
+        this.satellites = []; // Reset satellites array
 
         trajectories.forEach((prediction, index) => {
-            if (prediction.trajectory && prediction.trajectory.length > 0) {
-                const points = [];
-                prediction.trajectory.forEach(point => {
-                    const x = (point.x || 0) * scale;
-                    const y = (point.y || 0) * scale; 
-                    const z = (point.z || 0) * scale;
-                    points.push(new THREE.Vector3(x, y, z));
+            if (index >= 10) return; // Limit to 10 trajectories for performance
+            
+            // Generate complete orbital trajectory around Earth
+            const altitude = 400 + (index * 100); // Vary altitude: 400-1300 km
+            const orbitRadius = earthRadius + altitude;
+            const inclination = (index * 15) * Math.PI / 180; // Vary inclination: 0-135 degrees
+            const points = [];
+            
+            // Create full orbital path (360 degrees)
+            for (let angle = 0; angle <= 360; angle += 5) {
+                const rad = angle * Math.PI / 180;
+                
+                // Basic orbital mechanics - circular orbit
+                const x = orbitRadius * Math.cos(rad) * Math.cos(inclination);
+                const y = orbitRadius * Math.sin(rad);
+                const z = orbitRadius * Math.cos(rad) * Math.sin(inclination);
+                
+                points.push(new THREE.Vector3(x, y, z));
+            }
+
+            if (points.length > 1) {
+                // Create trajectory line
+                const geometry = new THREE.BufferGeometry().setFromPoints(points);
+                const material = new THREE.LineBasicMaterial({ 
+                    color: colors[index % colors.length],
+                    transparent: true,
+                    opacity: 0.7,
+                    linewidth: 2
                 });
+                
+                const line = new THREE.Line(geometry, material);
+                line.userData = { 
+                    type: 'trajectory', 
+                    satelliteId: prediction.satellite_id || index,
+                    altitude: altitude
+                };
+                scene.add(line);
 
-                if (points.length > 1) {
-                    const geometry = new THREE.BufferGeometry().setFromPoints(points);
-                    const material = new THREE.LineBasicMaterial({ 
-                        color: colors[colorIndex % colors.length],
-                        transparent: true,
-                        opacity: 0.8
-                    });
-                    
-                    const line = new THREE.Line(geometry, material);
-                    line.userData = { type: 'trajectory' };
-                    scene.add(line);
+                // Create satellite marker
+                const satelliteGeometry = new THREE.SphereGeometry(earthRadius * 0.008, 12, 12); // Scale relative to Earth
+                const satelliteMaterial = new THREE.MeshLambertMaterial({ 
+                    color: colors[index % colors.length],
+                    emissive: colors[index % colors.length],
+                    emissiveIntensity: 0.3
+                });
+                const satellite = new THREE.Mesh(satelliteGeometry, satelliteMaterial);
+                
+                // Position satellite at start of trajectory
+                satellite.position.copy(points[0]);
+                satellite.userData = { 
+                    type: 'satellite',
+                    satelliteId: prediction.satellite_id || index,
+                    trajectoryPoints: points,
+                    currentIndex: 0,
+                    altitude: altitude
+                };
+                scene.add(satellite);
+                this.satellites.push(satellite);
 
-                    if (points.length > 0) {
-                        const sphereGeometry = new THREE.SphereGeometry(0.2, 8, 8);
-                        const sphereMaterial = new THREE.MeshBasicMaterial({ 
-                            color: colors[colorIndex % colors.length] 
-                        });
-                        const satellite = new THREE.Mesh(sphereGeometry, sphereMaterial);
-                        satellite.position.copy(points[0]);
-                        satellite.userData = { type: 'satellite' };
-                        scene.add(satellite);
-                    }
-                }
-                colorIndex++;
+                // Add satellite label
+                this.createSatelliteLabel(satellite, `SAT-${prediction.satellite_id || index}`, scene);
             }
         });
+
+        console.log(`Added ${this.satellites.length} satellites with complete orbital trajectories`);
+    }
+
+    createSatelliteLabel(satellite, text, scene) {
+        // Create text sprite for satellite label
+        const canvas = document.createElement('canvas');
+        const context = canvas.getContext('2d');
+        canvas.width = 256;
+        canvas.height = 64;
+        
+        context.fillStyle = 'rgba(0, 0, 0, 0.8)';
+        context.fillRect(0, 0, canvas.width, canvas.height);
+        
+        context.fillStyle = '#ffffff';
+        context.font = '24px Arial';
+        context.textAlign = 'center';
+        context.fillText(text, canvas.width / 2, canvas.height / 2 + 8);
+        
+        const texture = new THREE.CanvasTexture(canvas);
+        const spriteMaterial = new THREE.SpriteMaterial({ map: texture, transparent: true });
+        const sprite = new THREE.Sprite(spriteMaterial);
+        
+        sprite.scale.set(1000, 250, 1); // Scale for visibility
+        sprite.position.copy(satellite.position);
+        sprite.position.y += 500; // Offset above satellite
+        
+        sprite.userData = { type: 'label', parentSatellite: satellite };
+        scene.add(sprite);
+        
+        return sprite;
+    }
+
+    animateSatellites() {
+        if (!this.satellites || !this.trajectoryScene) return;
+        
+        this.satellites.forEach(satellite => {
+            const userData = satellite.userData;
+            if (userData.trajectoryPoints && userData.trajectoryPoints.length > 0) {
+                // Move satellite along trajectory
+                userData.currentIndex = (userData.currentIndex + 0.5) % userData.trajectoryPoints.length;
+                const currentPoint = userData.trajectoryPoints[Math.floor(userData.currentIndex)];
+                const nextPoint = userData.trajectoryPoints[Math.floor(userData.currentIndex + 1) % userData.trajectoryPoints.length];
+                
+                // Interpolate between points for smooth movement
+                const t = userData.currentIndex - Math.floor(userData.currentIndex);
+                satellite.position.lerpVectors(currentPoint, nextPoint, t);
+                
+                // Update label position if it exists
+                const scene = this.trajectoryScene.scene;
+                scene.children.forEach(child => {
+                    if (child.userData.type === 'label' && child.userData.parentSatellite === satellite) {
+                        child.position.copy(satellite.position);
+                        child.position.y += 500;
+                    }
+                });
+            }
+        });
+    }
+
+    focusOnEarth() {
+        if (!this.trajectoryScene) return;
+        const { camera, controls } = this.trajectoryScene;
+        const earthRadius = 6371;
+        
+        this.animateCamera(
+            camera.position,
+            new THREE.Vector3(earthRadius * 2, earthRadius * 1.5, earthRadius * 2),
+            new THREE.Vector3(0, 0, 0)
+        );
+        if (controls) controls.target.set(0, 0, 0);
+    }
+
+    showFullOrbitView() {
+        if (!this.trajectoryScene) return;
+        const { camera, controls } = this.trajectoryScene;
+        const earthRadius = 6371;
+        
+        this.animateCamera(
+            camera.position,
+            new THREE.Vector3(earthRadius * 4, earthRadius * 3, earthRadius * 4),
+            new THREE.Vector3(0, 0, 0)
+        );
+        if (controls) controls.target.set(0, 0, 0);
+    }
+
+    goToNearestSatellite() {
+        if (!this.satellites || this.satellites.length === 0) return;
+        
+        // Find nearest satellite to current camera position
+        const camera = this.trajectoryScene.camera;
+        let nearestSat = this.satellites[0];
+        let minDistance = camera.position.distanceTo(nearestSat.position);
+        
+        this.satellites.forEach(sat => {
+            const distance = camera.position.distanceTo(sat.position);
+            if (distance < minDistance) {
+                minDistance = distance;
+                nearestSat = sat;
+            }
+        });
+        
+        this.focusOnSatellite(nearestSat);
+    }
+
+    goToCurrentSatellite() {
+        if (!this.satellites || this.satellites.length === 0) return;
+        const satellite = this.satellites[this.currentSatelliteIndex % this.satellites.length];
+        this.focusOnSatellite(satellite);
+    }
+
+    goToNextSatellite() {
+        if (!this.satellites || this.satellites.length === 0) return;
+        this.currentSatelliteIndex = (this.currentSatelliteIndex + 1) % this.satellites.length;
+        this.goToCurrentSatellite();
+    }
+
+    goToPreviousSatellite() {
+        if (!this.satellites || this.satellites.length === 0) return;
+        this.currentSatelliteIndex = (this.currentSatelliteIndex - 1 + this.satellites.length) % this.satellites.length;
+        this.goToCurrentSatellite();
+    }
+
+    focusOnSatellite(satellite) {
+        if (!satellite || !this.trajectoryScene) return;
+        
+        const { camera, controls } = this.trajectoryScene;
+        const satPos = satellite.position.clone();
+        const earthRadius = 6371;
+        
+        // Position camera at a good viewing distance from satellite
+        const offset = satPos.clone().normalize().multiplyScalar(earthRadius * 0.5);
+        const targetPos = satPos.clone().add(offset);
+        
+        this.animateCamera(camera.position, targetPos, satPos);
+        if (controls) controls.target.copy(satPos);
+        
+        // Show satellite info
+        const userData = satellite.userData;
+        this.showAlert(`Focusing on SAT-${userData.satelliteId} (Alt: ${userData.altitude}km)`, 'info');
+    }
+
+    animateCamera(fromPos, toPos, lookAtPos, duration = 1000) {
+        if (!this.trajectoryScene) return;
+        
+        const camera = this.trajectoryScene.camera;
+        const startPos = fromPos.clone();
+        const startTime = Date.now();
+        
+        const animate = () => {
+            const elapsed = Date.now() - startTime;
+            const progress = Math.min(elapsed / duration, 1);
+            
+            // Smooth easing
+            const eased = 1 - Math.pow(1 - progress, 3);
+            
+            camera.position.lerpVectors(startPos, toPos, eased);
+            camera.lookAt(lookAtPos);
+            
+            if (progress < 1) {
+                requestAnimationFrame(animate);
+            }
+        };
+        
+        animate();
     }
 
     showTrajectoriesIn3D() {
