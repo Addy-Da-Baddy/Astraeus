@@ -1,6 +1,6 @@
 class NovaGenDashboard {
     constructor() {
-        this.apiBaseUrl = 'http://localhost:5000/api';
+        this.apiBaseUrl = '/api';
         this.scene = null;
         this.camera = null;
         this.renderer = null;
@@ -12,11 +12,16 @@ class NovaGenDashboard {
         this.selectedSatellite = null;
         this.satelliteList = [];
         this.controls = null;
-        
-        // Camera rotation for free movement
-        this.cameraRotationX = 0;
-        this.cameraRotationY = 0;
-        this.cameraDistance = 35000;
+        this.labelOverlay = null;
+        this.labelElements = new Map();
+        this.showLabels = false;
+        this.earthRotationSpeed = 0.005;
+        this.firstVizCenterDone = false;
+        this.hasUserInteracted = false;
+        this.desiredCameraDistance = null;
+        this.smoothDistanceAlpha = 0.15;
+        this.zoomGestureActive = false;
+        this._wheelCooldown = null;
         
         this.init();
     }
@@ -26,15 +31,21 @@ class NovaGenDashboard {
         await this.startRealTimeUpdates();
         this.setupEventListeners();
         this.showAlert('🚀 NovaGen Dashboard initialized', 'success');
+        
+        // Center the view initially
+        this.centerDefaultView(true);
     }
 
     setupEventListeners() {
         // Resize handler
         window.addEventListener('resize', () => {
             if (this.camera && this.renderer) {
-                this.camera.aspect = window.innerWidth / window.innerHeight;
-                this.camera.updateProjectionMatrix();
-                this.renderer.setSize(window.innerWidth, window.innerHeight);
+                const container = document.getElementById('visualization-container');
+                if (container) {
+                    this.camera.aspect = container.clientWidth / container.clientHeight;
+                    this.camera.updateProjectionMatrix();
+                    this.renderer.setSize(container.clientWidth, container.clientHeight);
+                }
             }
         });
     }
@@ -43,143 +54,227 @@ class NovaGenDashboard {
         const container = document.getElementById('visualization-container');
         if (!container) return;
 
-        // Enhanced scene setup with terminal-style colors
+        // Scene setup
         this.scene = new THREE.Scene();
-        this.scene.background = new THREE.Color(0x0a0a0a);
-        this.scene.fog = new THREE.Fog(0x0a0a0a, 1000, 50000);
+        this.scene.background = new THREE.Color(0x000011);
 
-        // Advanced camera with optimized FOV
-        this.camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 1, 100000);
-        this.camera.position.set(25000, 15000, 25000);
+        // Camera setup
+        this.camera = new THREE.PerspectiveCamera(75, container.clientWidth / container.clientHeight, 0.1, 50000);
+        this.camera.position.set(15000, 10000, 15000);
 
-        // SOTA renderer with enhanced settings
-        this.renderer = new THREE.WebGLRenderer({ 
-            antialias: true, 
-            alpha: true,
-            powerPreference: "high-performance"
-        });
+        // Renderer setup
+        this.renderer = new THREE.WebGLRenderer({ antialias: true });
         this.renderer.setSize(container.clientWidth, container.clientHeight);
-        this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
         this.renderer.shadowMap.enabled = true;
         this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-        this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-        this.renderer.toneMappingExposure = 1.2;
-        this.renderer.outputEncoding = THREE.sRGBEncoding;
         container.appendChild(this.renderer.domElement);
 
-        // Terminal-style lighting setup
-        const ambientLight = new THREE.AmbientLight(0x004400, 0.3);
-        this.scene.add(ambientLight);
+        // Controls
+        if (THREE.OrbitControls) {
+            this.controls = new THREE.OrbitControls(this.camera, this.renderer.domElement);
+            this.controls.enableDamping = true;
+            this.controls.dampingFactor = 0.05;
+            this.controls.target.set(0, 0, 0);
+            this.controls.minDistance = 5000;
+            this.controls.maxDistance = 80000;
+            this.controls.enableRotate = true;
+            this.controls.enableZoom = true;
+            this.controls.enablePan = true;
+            if (THREE.MOUSE) {
+                this.controls.mouseButtons = {
+                    LEFT: THREE.MOUSE.ROTATE,
+                    MIDDLE: THREE.MOUSE.DOLLY,
+                    RIGHT: THREE.MOUSE.PAN
+                };
+            }
+            if (THREE.TOUCH) {
+                this.controls.touches = {
+                    ONE: THREE.TOUCH.ROTATE,
+                    TWO: THREE.TOUCH.DOLLY_PAN
+                };
+            }
+            this.controls.update();
+            this.controls.addEventListener('start', () => { this.hasUserInteracted = true; });
+        }
 
-        const mainLight = new THREE.DirectionalLight(0x00ff00, 0.8);
-        mainLight.position.set(30000, 30000, 20000);
-        mainLight.castShadow = true;
-        mainLight.shadow.mapSize.width = 4096;
-        mainLight.shadow.mapSize.height = 4096;
-        mainLight.shadow.camera.near = 1000;
-        mainLight.shadow.camera.far = 100000;
-        mainLight.shadow.camera.left = -50000;
-        mainLight.shadow.camera.right = 50000;
-        mainLight.shadow.camera.top = 50000;
-        mainLight.shadow.camera.bottom = -50000;
-        this.scene.add(mainLight);
+        // Fallback manual mouse drag to rotate view
+        let isDragging = false;
+        let lastX = 0;
+        let lastY = 0;
+        const onMouseDown = (e) => { isDragging = true; lastX = e.clientX; lastY = e.clientY; this.hasUserInteracted = true; };
+        const onMouseUp = () => { isDragging = false; };
+        const onMouseMove = (e) => {
+            if (!isDragging) return;
+            const deltaX = e.clientX - lastX;
+            const deltaY = e.clientY - lastY;
+            lastX = e.clientX;
+            lastY = e.clientY;
+            const rotateSpeed = 0.0025;
+            if (this.controls && typeof this.controls.rotateLeft === 'function') {
+                this.controls.rotateLeft(deltaX * rotateSpeed);
+                this.controls.rotateUp(deltaY * rotateSpeed);
+                this.controls.update();
+            } else {
+                // Basic spherical fallback
+                const target = (this.controls && this.controls.target) ? this.controls.target : new THREE.Vector3(0,0,0);
+                const offset = this.camera.position.clone().sub(target);
+                const spherical = new THREE.Spherical();
+                spherical.setFromVector3(offset);
+                spherical.theta -= deltaX * rotateSpeed;
+                spherical.phi -= deltaY * rotateSpeed;
+                spherical.phi = Math.max(0.01, Math.min(Math.PI - 0.01, spherical.phi));
+                offset.setFromSpherical(spherical);
+                this.camera.position.copy(target.clone().add(offset));
+                this.camera.lookAt(target);
+            }
+        };
+        this.renderer.domElement.addEventListener('mousedown', onMouseDown);
+        window.addEventListener('mouseup', onMouseUp);
+        window.addEventListener('mousemove', onMouseMove);
+        this.renderer.domElement.addEventListener('contextmenu', (e) => e.preventDefault());
 
-        // Create enhanced Earth with terminal styling
+        // Create Earth
         this.createEarth();
+        this.createStarfield();
+        this.addSceneHelpers();
+        this.setupLabelOverlay(container);
         
-        // Add terminal-style star field
-        this.createStarField();
-        
-        // Add coordinate grid
-        // this.createCoordinateGrid(); // TODO: Implement later
-
-        // Enhanced controls setup
-        this.setupControls();
+        // Add lights
+        this.addLights();
         
         // Start animation loop
         this.animate();
+
+        // Prevent page scroll and implement wheel zoom on canvas
+        const wheelHandler = (e) => {
+            e.preventDefault();
+            const target = (this.controls && this.controls.target) ? this.controls.target : new THREE.Vector3(0,0,0);
+            const offset = this.camera.position.clone().sub(target);
+            const len = offset.length();
+            const factor = Math.exp(e.deltaY * 0.001);
+            const desired = len * factor;
+            this.setDesiredCameraDistance(desired, target);
+            this.zoomGestureActive = true;
+            if (this._wheelCooldown) clearTimeout(this._wheelCooldown);
+            this._wheelCooldown = setTimeout(() => { this.zoomGestureActive = false; }, 150);
+        };
+        this.renderer.domElement.addEventListener('wheel', wheelHandler, { passive: false });
+
+        // Touch pinch/slide zoom
+        let pinchPrevDist = 0;
+        let twoFingerPrevAvgY = 0;
+        const touchStartHandler = (e) => {
+            if (e.touches && e.touches.length === 2) {
+                e.preventDefault();
+                const dx = e.touches[0].clientX - e.touches[1].clientX;
+                const dy = e.touches[0].clientY - e.touches[1].clientY;
+                pinchPrevDist = Math.hypot(dx, dy);
+                twoFingerPrevAvgY = (e.touches[0].clientY + e.touches[1].clientY) * 0.5;
+                this.zoomGestureActive = true;
+            }
+        };
+        const touchMoveHandler = (e) => {
+            if (!e.touches) return;
+            if (e.touches.length === 2) {
+                e.preventDefault();
+                const dx = e.touches[0].clientX - e.touches[1].clientX;
+                const dy = e.touches[0].clientY - e.touches[1].clientY;
+                const dist = Math.hypot(dx, dy);
+                const avgY = (e.touches[0].clientY + e.touches[1].clientY) * 0.5;
+                const target = (this.controls && this.controls.target) ? this.controls.target : new THREE.Vector3(0,0,0);
+                const offset = this.camera.position.clone().sub(target);
+                const len = offset.length();
+                let desired = len;
+                if (pinchPrevDist > 0 && dist > 0) {
+                    // Pinch to zoom: adjust nonlinearly for responsiveness
+                    const scale = pinchPrevDist / dist;
+                    desired = len * Math.pow(scale, 1.2);
+                } else {
+                    // Two-finger slide: use vertical movement, stronger factor similar to slider feel
+                    const dyAvg = avgY - twoFingerPrevAvgY;
+                    // Exponential mapping for smoothness; positive dy moves away (zoom out)
+                    desired = len * Math.exp(dyAvg * 0.01);
+                }
+                this.setDesiredCameraDistance(desired, target);
+                pinchPrevDist = dist;
+                twoFingerPrevAvgY = avgY;
+            }
+        };
+        const touchEndHandler = (e) => {
+            if (!e.touches || e.touches.length < 2) {
+                pinchPrevDist = 0;
+                this.zoomGestureActive = false;
+            }
+        };
+        this.renderer.domElement.addEventListener('touchstart', touchStartHandler, { passive: false });
+        this.renderer.domElement.addEventListener('touchmove', touchMoveHandler, { passive: false });
+        this.renderer.domElement.addEventListener('touchend', touchEndHandler, { passive: false });
     }
 
     createEarth() {
-        const geometry = new THREE.SphereGeometry(6371, 128, 128);
+        const geometry = new THREE.SphereGeometry(6371, 64, 64);
         
-        // Terminal-style Earth material with green glow
+        // Earth material with basic color
         const material = new THREE.MeshPhongMaterial({
-            color: 0x004400,
-            shininess: 100,
-            transparent: true,
-            opacity: 0.8,
-            emissive: 0x002200
+            color: 0x6b93d6,
+            shininess: 40,
+            emissive: 0x001022,
+            specular: 0x335577
         });
 
         this.earth = new THREE.Mesh(geometry, material);
         this.earth.receiveShadow = true;
         this.scene.add(this.earth);
 
-        // Add terminal-style wireframe overlay
-        const wireframeGeometry = new THREE.SphereGeometry(6380, 32, 32);
-        const wireframe = new THREE.WireframeGeometry(wireframeGeometry);
-        const wireframeMesh = new THREE.LineSegments(wireframe, new THREE.LineBasicMaterial({
-            color: 0x00ff00,
-            transparent: true,
-            opacity: 0.3
-        }));
-        this.scene.add(wireframeMesh);
-
-        // Add terminal-style atmosphere
+        // Add atmosphere
         const atmosphereGeometry = new THREE.SphereGeometry(6371 * 1.025, 64, 64);
         const atmosphereMaterial = new THREE.MeshBasicMaterial({
-            color: 0x00ff00,
+            color: 0x87ceeb,
             transparent: true,
-            opacity: 0.1,
-            side: THREE.BackSide
+            opacity: 0.12
         });
         const atmosphere = new THREE.Mesh(atmosphereGeometry, atmosphereMaterial);
         this.scene.add(atmosphere);
     }
 
-    createStarField() {
-        const starGeometry = new THREE.BufferGeometry();
-        const starCount = 5000;
+    createStarfield() {
+        const starCount = 2000;
         const positions = new Float32Array(starCount * 3);
-        const colors = new Float32Array(starCount * 3);
-
-        for (let i = 0; i < starCount * 3; i += 3) {
-            // Random sphere distribution
-            const radius = 500 + Math.random() * 500;
-            const theta = Math.random() * Math.PI * 2;
-            const phi = Math.acos(2 * Math.random() - 1);
-
-            positions[i] = radius * Math.sin(phi) * Math.cos(theta);
-            positions[i + 1] = radius * Math.sin(phi) * Math.sin(theta);
-            positions[i + 2] = radius * Math.cos(phi);
-
-            // Terminal-style colors (green, white, cyan)
-            const colorChoice = Math.random();
-            if (colorChoice < 0.6) {
-                // White stars
-                colors[i] = colors[i + 1] = colors[i + 2] = 1.0;
-            } else if (colorChoice < 0.8) {
-                // Green stars (terminal style)
-                colors[i] = 0.0; colors[i + 1] = 1.0; colors[i + 2] = 0.0;
-            } else {
-                // Cyan stars
-                colors[i] = 0.0; colors[i + 1] = 1.0; colors[i + 2] = 1.0;
-            }
+        for (let i = 0; i < starCount; i++) {
+            const r = 90000;
+            positions[i * 3] = (Math.random() - 0.5) * 2 * r;
+            positions[i * 3 + 1] = (Math.random() - 0.5) * 2 * r;
+            positions[i * 3 + 2] = (Math.random() - 0.5) * 2 * r;
         }
+        const geometry = new THREE.BufferGeometry();
+        geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+        const material = new THREE.PointsMaterial({ color: 0xffffff, size: 60, sizeAttenuation: true, transparent: true, opacity: 0.7 });
+        const stars = new THREE.Points(geometry, material);
+        stars.userData = { type: 'background' };
+        this.scene.add(stars);
+    }
 
-        starGeometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-        starGeometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+    addSceneHelpers() {
+        const axes = new THREE.AxesHelper(5000);
+        axes.material.depthTest = false;
+        axes.renderOrder = 1;
+        axes.userData = { type: 'helper' };
+        this.scene.add(axes);
+        const grid = new THREE.PolarGridHelper(20000, 8, 8, 64, 0x223344, 0x223344);
+        grid.userData = { type: 'helper' };
+        this.scene.add(grid);
+    }
 
-        const starMaterial = new THREE.PointsMaterial({
-            size: 1.5,
-            vertexColors: true,
-            transparent: true,
-            opacity: 0.8
-        });
-
-        this.stars = new THREE.Points(starGeometry, starMaterial);
-        this.scene.add(this.stars);
+    setupLabelOverlay(container) {
+        const overlay = document.createElement('div');
+        overlay.style.position = 'absolute';
+        overlay.style.inset = '0';
+        overlay.style.pointerEvents = 'none';
+        overlay.id = 'viz-label-overlay';
+        container.appendChild(overlay);
+        this.labelOverlay = overlay;
+        this.showLabels = false;
+        this.labelElements = new Map();
     }
 
     addLights() {
@@ -196,121 +291,37 @@ class NovaGenDashboard {
         this.scene.add(directionalLight);
     }
 
-    setupControls() {
-        // Enhanced mouse controls with free movement and pointer lock support
-        const canvas = this.renderer.domElement;
-        let isMouseDown = false;
-        let mouseX = 0, mouseY = 0;
-        let isPointerLocked = false;
-
-        // Pointer lock change handler
-        const pointerLockChangeHandler = () => {
-            if (document.pointerLockElement === canvas) {
-                isPointerLocked = true;
-                console.log('🔒 Pointer lock activated - free mouse movement enabled');
-            } else {
-                isPointerLocked = false;
-                console.log('🔓 Pointer lock deactivated');
-            }
-        };
-
-        document.addEventListener('pointerlockchange', pointerLockChangeHandler);
-        document.addEventListener('mozpointerlockchange', pointerLockChangeHandler);
-        document.addEventListener('webkitpointerlockchange', pointerLockChangeHandler);
-
-        // Exit pointer lock on ESC
-        document.addEventListener('keydown', (event) => {
-            if (event.key === 'Escape' && isPointerLocked) {
-                document.exitPointerLock();
-                console.log('🔓 Pointer lock exited via ESC key');
-            }
-        });
-
-        canvas.addEventListener('mousedown', (event) => {
-            isMouseDown = true;
-            mouseX = event.clientX;
-            mouseY = event.clientY;
-            canvas.style.cursor = 'grabbing';
-        });
-
-        canvas.addEventListener('mouseup', () => {
-            isMouseDown = false;
-            canvas.style.cursor = isPointerLocked ? 'none' : 'grab';
-        });
-
-        canvas.addEventListener('mouseleave', () => {
-            if (!isPointerLocked) {
-                isMouseDown = false;
-                canvas.style.cursor = 'grab';
-            }
-        });
-
-        canvas.addEventListener('mousemove', (event) => {
-            if (isPointerLocked) {
-                // Free movement with pointer lock
-                const sensitivity = 0.002;
-                const deltaX = event.movementX * sensitivity;
-                const deltaY = event.movementY * sensitivity;
-
-                // Rotate around Earth center freely
-                this.cameraRotationY += deltaX;
-                this.cameraRotationX += deltaY;
-
-                // Clamp vertical rotation to avoid flipping
-                this.cameraRotationX = Math.max(-Math.PI/2, Math.min(Math.PI/2, this.cameraRotationX));
-
-                this.updateCameraPosition();
-            } else if (isMouseDown) {
-                // Standard orbit controls
-                const deltaX = event.clientX - mouseX;
-                const deltaY = event.clientY - mouseY;
-
-                // Rotate camera around Earth
-                const spherical = new THREE.Spherical();
-                spherical.setFromVector3(this.camera.position);
-                spherical.theta -= deltaX * 0.01;
-                spherical.phi += deltaY * 0.01;
-                spherical.phi = Math.max(0.1, Math.min(Math.PI - 0.1, spherical.phi));
-
-                this.camera.position.setFromSpherical(spherical);
-                this.camera.lookAt(0, 0, 0);
-
-                mouseX = event.clientX;
-                mouseY = event.clientY;
-            }
-        });
-
-        canvas.addEventListener('wheel', (event) => {
-            const scale = event.deltaY > 0 ? 1.1 : 0.9;
-            this.camera.position.multiplyScalar(scale);
-            this.camera.position.clampLength(15000, 500000);
-        });
-
-        canvas.style.cursor = 'grab';
-    }
-
-    updateCameraPosition() {
-        // Update camera position based on rotation angles
-        const x = this.cameraDistance * Math.cos(this.cameraRotationX) * Math.cos(this.cameraRotationY);
-        const y = this.cameraDistance * Math.sin(this.cameraRotationX);
-        const z = this.cameraDistance * Math.cos(this.cameraRotationX) * Math.sin(this.cameraRotationY);
-        
-        this.camera.position.set(x, y, z);
-        this.camera.lookAt(0, 0, 0);
-    }
-
     animate() {
+        if (!this.renderer || !this.scene || !this.camera) return;
+        
         requestAnimationFrame(() => this.animate());
-
+        
+        // Update controls
         if (this.controls) {
             this.controls.update();
         }
-
+        
         // Rotate Earth
-        if (this.earth) {
-            this.earth.rotation.y += 0.001;
+        if (this.earth && this.earthRotationSpeed) {
+            this.earth.rotation.y += this.earthRotationSpeed;
         }
-
+        
+        // Smoothly apply desired camera distance
+        if (this.desiredCameraDistance != null) {
+            const target = (this.controls && this.controls.target) ? this.controls.target : new THREE.Vector3(0,0,0);
+            const offset = this.camera.position.clone().sub(target);
+            const currentLen = offset.length();
+            const dir = offset.normalize();
+            const alpha = this.zoomGestureActive ? Math.max(this.smoothDistanceAlpha, 0.35) : this.smoothDistanceAlpha;
+            const nextLen = currentLen + (this.desiredCameraDistance - currentLen) * alpha;
+            this.camera.position.copy(target.clone().add(dir.multiplyScalar(nextLen)));
+            this.camera.lookAt(target);
+        }
+        
+        // Update statistics
+        this.updateLiveStatistics();
+        
+        // Render scene
         this.renderer.render(this.scene, this.camera);
     }
 
@@ -321,24 +332,45 @@ class NovaGenDashboard {
 
         if (!satellites || satellites.length === 0) return;
 
+        this.satelliteData = satellites;
+
         satellites.forEach((sat, index) => {
             const geometry = new THREE.SphereGeometry(50, 8, 8);
             const color = sat.is_debris ? 0xff4757 : 0x007bff;
             const material = new THREE.MeshBasicMaterial({ color });
 
             const satellite = new THREE.Mesh(geometry, material);
-            
-            // Set position (convert from km to scene units)
             satellite.position.set(
-                sat.position?.x || Math.random() * 20000 - 10000,
-                sat.position?.y || Math.random() * 20000 - 10000,
-                sat.position?.z || Math.random() * 20000 - 10000
+                (sat.x != null ? sat.x : (sat.position && sat.position.x) || 0),
+                (sat.y != null ? sat.y : (sat.position && sat.position.y) || 0),
+                (sat.z != null ? sat.z : (sat.position && sat.position.z) || 0)
             );
 
-            satellite.userData = { id: index, ...sat };
+            satellite.userData = { id: sat.id != null ? sat.id : index, type: sat.is_debris ? 'debris' : 'satellite' };
             this.satellites.push(satellite);
             this.scene.add(satellite);
+
+            if (this.showLabels) {
+                this.addOrUpdateLabel(satellite, sat.is_debris ? `Debris #${sat.id ?? index}` : `Sat #${sat.id ?? index}`);
+            }
         });
+    }
+
+    addOrUpdateLabel(object3d, text) {
+        if (!this.labelOverlay) return;
+        let el = this.labelElements.get(object3d);
+        if (!el) {
+            el = document.createElement('div');
+            el.style.position = 'absolute';
+            el.style.color = '#fff';
+            el.style.fontSize = '10px';
+            el.style.pointerEvents = 'none';
+            el.style.whiteSpace = 'nowrap';
+            el.style.textShadow = '0 0 4px rgba(0,0,0,0.8)';
+            this.labelOverlay.appendChild(el);
+            this.labelElements.set(object3d, el);
+        }
+        el.textContent = text;
     }
 
     async updateSystemStatus(data) {
@@ -845,13 +877,6 @@ class NovaGenDashboard {
             console.log('📊 Trajectories count:', data.trajectories_generated);
             console.log('📊 Predictions/satellite_trajectories:', data.predictions || data.satellite_trajectories);
 
-            // Add fallback data if no trajectories are present
-            if (!data.predictions && !data.satellite_trajectories) {
-                console.log('⚠️ No trajectory data found - generating fallback data');
-                data.predictions = this.generateFallbackTrajectoryData();
-                this.trajectoryData = data;
-            }
-
             // Display results
             resultContainer.innerHTML = `
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
@@ -878,53 +903,16 @@ class NovaGenDashboard {
                         <span>${new Date().toLocaleTimeString()}</span>
                     </div>
                 </div>
+                <div style="display: flex; gap: 1rem; justify-content: center;">
+                    <button class="btn btn-primary" onclick="window.dashboard.showTrajectoriesIn3D()">
+                        <i class="fas fa-cube"></i> View in 3D
+                    </button>
+                    <button class="btn btn-outline" onclick="window.dashboard.showTrajectoryAnalysis()">
+                        <i class="fas fa-chart-line"></i> Analysis
+                    </button>
+                </div>
             `;
 
-            // Show view controls and container in trajectories tab
-            const viewControls = document.getElementById('trajectory-view-controls');
-            const viewContainer = document.getElementById('trajectory-view-container');
-            const defaultMessage = document.getElementById('trajectory-default-message');
-            
-            if (viewControls) {
-                viewControls.style.display = 'flex';
-                viewControls.classList.add('show');
-                console.log('✅ Trajectory view controls shown');
-                console.log('📊 Controls display style:', window.getComputedStyle(viewControls).display);
-                console.log('📊 Controls visibility:', window.getComputedStyle(viewControls).visibility);
-                console.log('📊 Controls classes:', viewControls.className);
-            } else {
-                console.error('❌ Trajectory view controls element not found');
-            }
-            
-            if (viewContainer) {
-                viewContainer.style.display = 'block';
-                console.log('✅ Trajectory view container shown');
-            } else {
-                console.error('❌ Trajectory view container element not found');
-            }
-            
-            // Hide default message
-            if (defaultMessage) {
-                defaultMessage.style.display = 'none';
-                console.log('✅ Default message hidden');
-            }
-
-            // Switch to trajectories tab automatically
-            if (typeof switchToTab === 'function') {
-                switchToTab('trajectories');
-                console.log('🚀 Switched to trajectories tab');
-            }
-
-            // Initialize with 3D view by default
-            setTimeout(() => {
-                const viewModeSelect = document.getElementById('trajectory-view-mode');
-                if (viewModeSelect) {
-                    viewModeSelect.value = '3d';
-                }
-                this.show3DTrajectoryView();
-                console.log('🎯 3D trajectory view initialized');
-            }, 100);
-            
             // Initialize trajectory visualization
             this.initializeTrajectoryVisualization();
             this.updateTrajectoryStatistics();
@@ -934,40 +922,6 @@ class NovaGenDashboard {
             console.error('Trajectory prediction error:', error);
             this.showAlert('Error generating trajectories', 'danger');
         }
-    }
-
-    generateFallbackTrajectoryData() {
-        console.log('🔄 Generating fallback trajectory data for testing');
-        const fallbackData = [];
-        
-        // Generate sample trajectories for 3 objects
-        for (let objIndex = 0; objIndex < 3; objIndex++) {
-            const trajectory = {
-                object_id: `TEST-SAT-${objIndex + 1}`,
-                positions: []
-            };
-            
-            // Generate 24 hourly positions for each object
-            for (let hour = 0; hour < 24; hour++) {
-                const angle = (hour / 24) * 2 * Math.PI;
-                const radius = 7000 + (objIndex * 500); // Different orbital heights
-                
-                trajectory.positions.push({
-                    x: radius * Math.cos(angle + objIndex),
-                    y: radius * Math.sin(angle + objIndex) * 0.5,
-                    z: radius * Math.sin(angle + objIndex) * Math.cos(objIndex),
-                    vx: -3 * Math.sin(angle + objIndex),
-                    vy: 3 * Math.cos(angle + objIndex) * 0.5,
-                    vz: 1 * Math.cos(angle + objIndex),
-                    timestamp: new Date(Date.now() + hour * 3600000).toISOString()
-                });
-            }
-            
-            fallbackData.push(trajectory);
-        }
-        
-        console.log('✅ Generated fallback data with', fallbackData.length, 'trajectories');
-        return fallbackData;
     }
 
     initializeTrajectoryVisualization() {
@@ -1002,7 +956,7 @@ class NovaGenDashboard {
         scene.add(directionalLight);
 
         // Add trajectory paths
-        this.addTrajectoryPaths(scene);
+        this.addTrajectoryPathsToScene(scene, 1/1000);
 
         // Set camera position
         camera.position.set(0, 0, 50);
@@ -1064,23 +1018,21 @@ class NovaGenDashboard {
         window.addEventListener('resize', handleResize);
     }
 
-    addTrajectoryPaths(scene) {
+    addTrajectoryPathsToScene(scene, scale = 1) {
         if (!this.trajectoryData || (!this.trajectoryData.predictions && !this.trajectoryData.satellite_trajectories)) return;
 
         const colors = [0xff6b6b, 0x4ecdc4, 0x45b7d1, 0x96ceb4, 0xfeca57, 0xff9ff3, 0x54a0ff];
         let colorIndex = 0;
 
-        // Use satellite_trajectories if available, otherwise predictions
         const trajectories = this.trajectoryData.satellite_trajectories || this.trajectoryData.predictions || [];
 
         trajectories.forEach((prediction, index) => {
             if (prediction.trajectory && prediction.trajectory.length > 0) {
                 const points = [];
                 prediction.trajectory.forEach(point => {
-                    // Convert from km to scene units (Earth radius = 6.371)
-                    const x = (point.x || 0) / 1000;
-                    const y = (point.y || 0) / 1000; 
-                    const z = (point.z || 0) / 1000;
+                    const x = (point.x || 0) * scale;
+                    const y = (point.y || 0) * scale; 
+                    const z = (point.z || 0) * scale;
                     points.push(new THREE.Vector3(x, y, z));
                 });
 
@@ -1093,9 +1045,9 @@ class NovaGenDashboard {
                     });
                     
                     const line = new THREE.Line(geometry, material);
+                    line.userData = { type: 'trajectory' };
                     scene.add(line);
 
-                    // Add satellite marker at current position
                     if (points.length > 0) {
                         const sphereGeometry = new THREE.SphereGeometry(0.2, 8, 8);
                         const sphereMaterial = new THREE.MeshBasicMaterial({ 
@@ -1103,6 +1055,7 @@ class NovaGenDashboard {
                         });
                         const satellite = new THREE.Mesh(sphereGeometry, sphereMaterial);
                         satellite.position.copy(points[0]);
+                        satellite.userData = { type: 'satellite' };
                         scene.add(satellite);
                     }
                 }
@@ -1114,8 +1067,7 @@ class NovaGenDashboard {
     showTrajectoriesIn3D() {
         this.switchTab('visualization');
         if (this.trajectoryData) {
-            // Add trajectories to main 3D scene
-            this.addTrajectoryPaths(this.scene);
+            this.addTrajectoryPathsToScene(this.scene, 1);
         }
     }
 
@@ -1141,6 +1093,27 @@ class NovaGenDashboard {
         
         document.body.appendChild(modal);
         this.renderTrajectoryAnalysis(document.getElementById('trajectory-analysis-content'));
+    }
+
+    async showSatelliteTrajectory() {
+        if (!this.selectedSatellite) return;
+        try {
+            const response = await fetch(`${this.apiBaseUrl}/trajectory/${this.selectedSatellite.id}`);
+            const data = await response.json();
+            if (data && data.trajectory) {
+                const points = data.trajectory.map(p => new THREE.Vector3((p.x || 0), (p.y || 0), (p.z || 0)));
+                if (points.length > 1) {
+                    const geometry = new THREE.BufferGeometry().setFromPoints(points);
+                    const material = new THREE.LineBasicMaterial({ color: 0x45b7d1, transparent: true, opacity: 0.9 });
+                    const line = new THREE.Line(geometry, material);
+                    line.userData = { type: 'trajectory' };
+                    this.scene.add(line);
+                    this.currentTab = 'visualization';
+                    this.updateVisibility();
+                    this.showAlert('Trajectory displayed in 3D view', 'success');
+                }
+            }
+        } catch (e) {}
     }
 
     renderTrajectoryAnalysis(container) {
@@ -1297,15 +1270,82 @@ class NovaGenDashboard {
                     this.renderer.setSize(container.clientWidth, container.clientHeight);
                     this.camera.aspect = container.clientWidth / container.clientHeight;
                     this.camera.updateProjectionMatrix();
+                    if (!this.firstVizCenterDone && !this.hasUserInteracted) {
+                        this.centerDefaultView(true);
+                        this.firstVizCenterDone = true;
+                    }
                 }
             }, 100);
         }
     }
 
+    toggleSatellites() {
+        if (this.scene) {
+            this.scene.traverse((child) => {
+                if (child.userData && child.userData.type === 'satellite') {
+                    child.visible = !child.visible;
+                    if (this.labelElements && this.labelElements.has(child)) {
+                        const el = this.labelElements.get(child);
+                        if (el) el.style.display = child.visible && this.showLabels ? 'block' : 'none';
+                    }
+                }
+            });
+            this.showAlert('Satellites visibility toggled', 'info');
+        }
+    }
+
+    toggleDebris() {
+        if (this.scene) {
+            this.scene.traverse((child) => {
+                if (child.userData && child.userData.type === 'debris') {
+                    child.visible = !child.visible;
+                    if (this.labelElements && this.labelElements.has(child)) {
+                        const el = this.labelElements.get(child);
+                        if (el) el.style.display = child.visible && this.showLabels ? 'block' : 'none';
+                    }
+                }
+            });
+            this.showAlert('Debris visibility toggled', 'info');
+        }
+    }
+
+    toggleTrajectories() {
+        if (this.scene) {
+            this.scene.traverse((child) => {
+                if (child.userData && child.userData.type === 'trajectory') {
+                    child.visible = !child.visible;
+                }
+            });
+            this.showAlert('Trajectories visibility toggled', 'info');
+        }
+    }
+
+    toggleLabels() {
+        this.showLabels = !this.showLabels;
+        if (!this.labelOverlay) return;
+        if (!this.showLabels) {
+            this.labelElements.forEach((el) => el.style.display = 'none');
+            return;
+        }
+        const overlay = this.labelOverlay;
+        this.scene.traverse((child) => {
+            if (child.userData && (child.userData.type === 'satellite' || child.userData.type === 'debris')) {
+                const name = child.userData.type === 'debris' ? `Debris #${child.userData.id}` : `Sat #${child.userData.id}`;
+                this.addOrUpdateLabel(child, name);
+                const el = this.labelElements.get(child);
+                if (el) el.style.display = child.visible ? 'block' : 'none';
+            }
+        });
+    }
+
     resetCamera() {
         if (this.camera) {
-            this.camera.position.set(0, 0, 50);
+            this.camera.position.set(15000, 10000, 15000);
             this.camera.lookAt(0, 0, 0);
+            if (this.controls) {
+                this.controls.target.set(0, 0, 0);
+                this.controls.update();
+            }
         }
     }
 
@@ -1341,20 +1381,25 @@ class NovaGenDashboard {
     }
 
     updateViewDistance(distance) {
-        if (this.camera) {
-            const dist = parseFloat(distance);
-            this.camera.position.setLength(dist);
-        }
+        if (!this.camera) return;
+        const sliderVal = parseFloat(distance);
+        const t = Math.min(Math.max((sliderVal - 20) / 180, 0), 1);
+        const minKm = 10000;
+        const maxKm = 40000;
+        const targetLen = minKm + (maxKm - minKm) * t;
+        this.setDesiredCameraDistance(targetLen);
     }
 
     resetSettings() {
-        document.getElementById('satellite-size').value = 1;
-        document.getElementById('earth-rotation').value = 0.005;
-        document.getElementById('view-distance').value = 50;
-        
+        const sizeEl = document.getElementById('satellite-size');
+        const distEl = document.getElementById('view-distance');
+        if (sizeEl) sizeEl.value = 1;
+        // Midpoint between 10k and 40k maps to slider ~110
+        const midSlider = 110;
+        if (distEl) distEl.value = midSlider;
+
         this.updateSatelliteSize(1);
-        this.updateEarthRotation(0.005);
-        this.updateViewDistance(50);
+        this.updateViewDistance(distEl ? distEl.value : midSlider);
     }
 
     updateLiveStatistics() {
@@ -1377,34 +1422,6 @@ class NovaGenDashboard {
         document.getElementById('stat-fps').textContent = stats.fps;
 
         this.lastFrameTime = performance.now();
-    }
-
-    // Add statistics update to animation loop
-    animate() {
-        if (!this.renderer || !this.scene || !this.camera) return;
-        
-        requestAnimationFrame(() => this.animate());
-        
-        // Update camera rotation if controls are set up
-        if (this.updateCameraRotation) {
-            this.updateCameraRotation();
-        }
-        
-        // Rotate Earth slowly
-        if (this.earth) {
-            this.earth.rotation.y += this.earthRotationSpeed || 0.002;
-        }
-        
-        // Animate stars twinkling
-        if (this.stars) {
-            this.stars.rotation.y += 0.0001;
-        }
-        
-        // Update live statistics
-        this.updateLiveStatistics();
-        
-        // Render scene
-        this.renderer.render(this.scene, this.camera);
     }
 
     // Enhanced trajectory clearing
@@ -1593,558 +1610,31 @@ class NovaGenDashboard {
         }, 4000);
     }
 
-    // 3D Trajectory View
-    show3DTrajectoryView() {
-        console.log('🎮 Showing 3D trajectory view');
-        const canvas = document.getElementById('trajectory-3d-canvas');
-        if (!canvas) {
-            console.error('❌ 3D trajectory canvas not found');
-            return;
-        }
-        
-        if (!this.trajectoryData) {
-            console.warn('⚠️ No trajectory data available for 3D view');
-            return;
-        }
-
-        console.log('🎮 Setting up 3D trajectory visualization...');
-
-        // Clear previous 3D scene if exists
-        if (this.trajectory3DRenderer) {
-            this.trajectory3DRenderer.dispose();
-        }
-
-        // Create 3D scene for trajectory
-        const scene = new THREE.Scene();
-        scene.background = new THREE.Color(0x0a0a0a);
-        
-        const camera = new THREE.PerspectiveCamera(75, canvas.clientWidth / canvas.clientHeight, 0.1, 100000);
-        const renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true });
-        renderer.setSize(canvas.clientWidth, canvas.clientHeight);
-        
-        // Store renderer for cleanup
-        this.trajectory3DRenderer = renderer;
-
-        // Add Earth
-        const earthGeometry = new THREE.SphereGeometry(6371, 32, 32);
-        const earthMaterial = new THREE.MeshBasicMaterial({ 
-            color: 0x004400, 
-            wireframe: true,
-            transparent: true,
-            opacity: 0.3
-        });
-        const earth = new THREE.Mesh(earthGeometry, earthMaterial);
-        scene.add(earth);
-
-        // Add trajectories
-        this.add3DTrajectoryPaths(scene);
-
-        // Lighting
-        const ambientLight = new THREE.AmbientLight(0x404040, 0.6);
-        scene.add(ambientLight);
-        const directionalLight = new THREE.DirectionalLight(0x00ff00, 0.8);
-        directionalLight.position.set(1, 1, 1);
-        scene.add(directionalLight);
-
-        // Position camera
-        camera.position.set(25000, 15000, 25000);
-        camera.lookAt(0, 0, 0);
-
-        // Simple orbit controls
-        let mouseX = 0, mouseY = 0, isMouseDown = false;
-        canvas.addEventListener('mousedown', (e) => {
-            isMouseDown = true;
-            mouseX = e.clientX;
-            mouseY = e.clientY;
-        });
-        
-        canvas.addEventListener('mouseup', () => isMouseDown = false);
-        
-        canvas.addEventListener('mousemove', (e) => {
-            if (isMouseDown) {
-                const deltaX = (e.clientX - mouseX) * 0.01;
-                const deltaY = (e.clientY - mouseY) * 0.01;
-                camera.position.x = camera.position.x * Math.cos(deltaX) - camera.position.z * Math.sin(deltaX);
-                camera.position.z = camera.position.x * Math.sin(deltaX) + camera.position.z * Math.cos(deltaX);
-                camera.lookAt(0, 0, 0);
-                mouseX = e.clientX;
-                mouseY = e.clientY;
+    centerDefaultView(useSlider = false) {
+        let len = this.camera.position.length() || 120000;
+        if (useSlider) {
+            const distEl = document.getElementById('view-distance');
+            if (distEl) {
+                const sliderVal = parseFloat(distEl.value);
+                const t = Math.min(Math.max((sliderVal - 20) / 180, 0), 1);
+                const minKm = 10000;
+                const maxKm = 40000;
+                len = minKm + (maxKm - minKm) * t;
             }
-        });
-
-        // Animation loop
-        const animate = () => {
-            if (this.trajectory3DRenderer && this.trajectory3DRenderer.domElement) {
-                requestAnimationFrame(animate);
-                earth.rotation.y += 0.001;
-                renderer.render(scene, camera);
-            }
-        };
-        animate();
-        
-        console.log('✅ 3D trajectory view initialized with animations');
-    }
-
-    // 2D Trajectory View
-    show2DTrajectoryView() {
-        console.log('🎯 Starting 2D trajectory view...');
-        const canvas = document.getElementById('trajectory-2d-canvas');
-        if (!canvas) {
-            console.error('❌ trajectory-2d-canvas element not found');
-            return;
         }
-        if (!this.trajectoryData) {
-            console.error('❌ No trajectory data available');
-            return;
-        }
-        
-        console.log('✅ Canvas found, trajectory data available');
-        console.log('📊 Trajectory data:', this.trajectoryData);
-
-        const ctx = canvas.getContext('2d');
-        canvas.width = canvas.clientWidth;
-        canvas.height = canvas.clientHeight;
-        
-        console.log(`📐 Canvas size: ${canvas.width}x${canvas.height}`);
-
-        // Animation state
-        let animationFrame = 0;
-        const maxFrames = 60;
-        
-        const animate2D = () => {
-            // Clear canvas with fade effect
-            ctx.fillStyle = 'rgba(10, 10, 10, 0.1)';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-            
-            // Full clear every few frames
-            if (animationFrame % 30 === 0) {
-                ctx.fillStyle = '#0a0a0a';
-                ctx.fillRect(0, 0, canvas.width, canvas.height);
-            }
-
-            // Draw coordinate system
-            ctx.strokeStyle = `rgba(51, 51, 51, ${0.5 + 0.3 * Math.sin(animationFrame * 0.1)})`;
-            ctx.lineWidth = 1;
-            ctx.setLineDash([5, 5]);
-
-            // Draw animated grid
-            const gridSize = 50;
-            const offset = (animationFrame * 0.5) % gridSize;
-            
-            for (let i = -offset; i <= canvas.width + gridSize; i += gridSize) {
-                ctx.beginPath();
-                ctx.moveTo(i, 0);
-                ctx.lineTo(i, canvas.height);
-                ctx.stroke();
-            }
-            for (let i = -offset; i <= canvas.height + gridSize; i += gridSize) {
-                ctx.beginPath();
-                ctx.moveTo(0, i);
-                ctx.lineTo(canvas.width, i);
-                ctx.stroke();
-            }
-
-            // Draw Earth (center) with pulse effect
-            const centerX = canvas.width / 2;
-            const centerY = canvas.height / 2;
-            const earthRadius = 30 + 5 * Math.sin(animationFrame * 0.15);
-            
-            ctx.setLineDash([]);
-            
-            // Earth glow effect
-            const gradient = ctx.createRadialGradient(centerX, centerY, 0, centerX, centerY, earthRadius + 10);
-            gradient.addColorStop(0, 'rgba(0, 68, 0, 0.8)');
-            gradient.addColorStop(1, 'rgba(0, 255, 0, 0.2)');
-            ctx.fillStyle = gradient;
-            ctx.beginPath();
-            ctx.arc(centerX, centerY, earthRadius + 10, 0, 2 * Math.PI);
-            ctx.fill();
-            
-            // Earth core
-            ctx.fillStyle = '#004400';
-            ctx.beginPath();
-            ctx.arc(centerX, centerY, earthRadius, 0, 2 * Math.PI);
-            ctx.fill();
-            
-            ctx.strokeStyle = `rgba(0, 255, 0, ${0.7 + 0.3 * Math.sin(animationFrame * 0.2)})`;
-            ctx.lineWidth = 2;
-            ctx.stroke();
-
-            // Draw trajectories with animation
-            this.draw2DTrajectoryPaths(ctx, centerX, centerY, animationFrame);
-
-            // Add labels with glow
-            ctx.shadowColor = '#00ff00';
-            ctx.shadowBlur = 10;
-            ctx.fillStyle = '#00ff00';
-            ctx.font = 'bold 14px JetBrains Mono, monospace';
-            ctx.fillText('2D ORBITAL PROJECTION', 10, 25);
-            
-            ctx.shadowBlur = 5;
-            ctx.fillStyle = '#00ffff';
-            ctx.font = '12px JetBrains Mono, monospace';
-            ctx.fillText('X-Y PLANE VIEW', 10, 45);
-            
-            ctx.shadowBlur = 0;
-            ctx.fillStyle = '#808080';
-            ctx.font = '10px JetBrains Mono, monospace';
-            ctx.fillText(`SCALE: 1px ≈ 200km | FRAME: ${animationFrame}`, 10, canvas.height - 10);
-
-            animationFrame++;
-            if (animationFrame < maxFrames) {
-                requestAnimationFrame(animate2D);
-            } else {
-                // Final static frame
-                this.draw2DTrajectoryViewStatic();
-            }
-        };
-
-        // Start animation
-        animate2D();
-        console.log('🎬 2D trajectory animation started');
-    }
-    
-    // Static 2D view (final frame)
-    draw2DTrajectoryViewStatic() {
-        const canvas = document.getElementById('trajectory-2d-canvas');
-        if (!canvas || !this.trajectoryData) return;
-
-        const ctx = canvas.getContext('2d');
-        
-        // Clear canvas
-        ctx.fillStyle = '#0a0a0a';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-        // Draw final grid
-        ctx.strokeStyle = '#333333';
-        ctx.lineWidth = 1;
-        ctx.setLineDash([5, 5]);
-        const gridSize = 50;
-        for (let i = 0; i <= canvas.width; i += gridSize) {
-            ctx.beginPath();
-            ctx.moveTo(i, 0);
-            ctx.lineTo(i, canvas.height);
-            ctx.stroke();
-        }
-        for (let i = 0; i <= canvas.height; i += gridSize) {
-            ctx.beginPath();
-            ctx.moveTo(0, i);
-            ctx.lineTo(canvas.width, i);
-            ctx.stroke();
-        }
-
-        // Draw Earth (center)
-        const centerX = canvas.width / 2;
-        const centerY = canvas.height / 2;
-        const earthRadius = 30;
-        
-        ctx.setLineDash([]);
-        ctx.fillStyle = '#004400';
-        ctx.beginPath();
-        ctx.arc(centerX, centerY, earthRadius, 0, 2 * Math.PI);
-        ctx.fill();
-        
-        ctx.strokeStyle = '#00ff00';
-        ctx.lineWidth = 2;
-        ctx.stroke();
-
-        // Draw final trajectories
-        this.draw2DTrajectoryPaths(ctx, centerX, centerY, 0);
-
-        // Add labels
-        ctx.fillStyle = '#00ff00';
-        ctx.font = 'bold 14px JetBrains Mono, monospace';
-        ctx.fillText('2D ORBITAL PROJECTION', 10, 25);
-        ctx.fillStyle = '#808080';
-        ctx.font = '10px JetBrains Mono, monospace';
-        ctx.fillText('STATIC VIEW | Scale: 1 pixel ≈ 200 km', 10, canvas.height - 10);
-    }
-
-    // Numbers/Data Table View
-    showNumbersTrajectoryView() {
-        console.log('📊 Showing numbers/data table view');
-        const tbody = document.getElementById('trajectory-data-tbody');
-        if (!tbody) {
-            console.error('❌ Data table tbody not found');
-            return;
-        }
-        
-        if (!this.trajectoryData) {
-            console.warn('⚠️ No trajectory data available');
-            tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 2rem; color: var(--text-secondary);">No trajectory data available. Generate trajectories first.</td></tr>';
-            return;
-        }
-
-        tbody.innerHTML = '';
-
-        // Get trajectory data
-        const trajectories = this.trajectoryData.predictions || this.trajectoryData.satellite_trajectories || [];
-        console.log('📊 Processing trajectories:', trajectories.length, 'items');
-        
-        if (Array.isArray(trajectories) && trajectories.length > 0) {
-            let totalRows = 0;
-            trajectories.forEach((traj, index) => {
-                if (traj.positions && Array.isArray(traj.positions)) {
-                    traj.positions.forEach((pos, posIndex) => {
-                        const row = tbody.insertRow();
-                        const velocity = Math.sqrt((pos.vx || 0)**2 + (pos.vy || 0)**2 + (pos.vz || 0)**2);
-                        const altitude = Math.sqrt(pos.x**2 + pos.y**2 + pos.z**2) - 6371;
-                        
-                        row.innerHTML = `
-                            <td style="padding: 0.3rem; border: 1px solid var(--terminal-border); color: var(--terminal-cyan);">OBJ-${traj.object_id || index}</td>
-                            <td style="padding: 0.3rem; border: 1px solid var(--terminal-border);">${pos.timestamp || new Date(Date.now() + posIndex * 3600000).toISOString()}</td>
-                            <td style="padding: 0.3rem; border: 1px solid var(--terminal-border); color: var(--terminal-amber);">${pos.x.toFixed(2)}</td>
-                            <td style="padding: 0.3rem; border: 1px solid var(--terminal-border); color: var(--terminal-amber);">${pos.y.toFixed(2)}</td>
-                            <td style="padding: 0.3rem; border: 1px solid var(--terminal-border); color: var(--terminal-amber);">${pos.z.toFixed(2)}</td>
-                            <td style="padding: 0.3rem; border: 1px solid var(--terminal-border); color: var(--terminal-green);">${velocity.toFixed(3)}</td>
-                            <td style="padding: 0.3rem; border: 1px solid var(--terminal-border); color: var(--terminal-blue);">${altitude.toFixed(2)}</td>
-                        `;
-                        totalRows++;
-                    });
-                }
-            });
-            console.log('✅ Added', totalRows, 'data rows to table');
-        } else if (typeof trajectories === 'object' && trajectories !== null) {
-            // Handle object format
-            let totalRows = 0;
-            Object.keys(trajectories).forEach(objectId => {
-                const traj = trajectories[objectId];
-                if (traj.positions && Array.isArray(traj.positions)) {
-                    traj.positions.forEach((pos, posIndex) => {
-                        const row = tbody.insertRow();
-                        const velocity = Math.sqrt((pos.vx || 0)**2 + (pos.vy || 0)**2 + (pos.vz || 0)**2);
-                        const altitude = Math.sqrt(pos.x**2 + pos.y**2 + pos.z**2) - 6371;
-                        
-                        row.innerHTML = `
-                            <td style="padding: 0.3rem; border: 1px solid var(--terminal-border); color: var(--terminal-cyan);">${objectId}</td>
-                            <td style="padding: 0.3rem; border: 1px solid var(--terminal-border);">${pos.timestamp || new Date(Date.now() + posIndex * 3600000).toISOString()}</td>
-                            <td style="padding: 0.3rem; border: 1px solid var(--terminal-border); color: var(--terminal-amber);">${pos.x.toFixed(2)}</td>
-                            <td style="padding: 0.3rem; border: 1px solid var(--terminal-border); color: var(--terminal-amber);">${pos.y.toFixed(2)}</td>
-                            <td style="padding: 0.3rem; border: 1px solid var(--terminal-border); color: var(--terminal-amber);">${pos.z.toFixed(2)}</td>
-                            <td style="padding: 0.3rem; border: 1px solid var(--terminal-border); color: var(--terminal-green);">${velocity.toFixed(3)}</td>
-                            <td style="padding: 0.3rem; border: 1px solid var(--terminal-border); color: var(--terminal-blue);">${altitude.toFixed(2)}</td>
-                        `;
-                        totalRows++;
-                    });
-                }
-            });
-            console.log('✅ Added', totalRows, 'data rows to table (object format)');
-        } else {
-            console.warn('⚠️ No valid trajectory data found');
-            tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 2rem; color: var(--text-secondary);">No trajectory positions found in data.</td></tr>';
-            return;
-        }
-
-        // Add summary row
-        const summaryRow = tbody.insertRow();
-        summaryRow.style.backgroundColor = 'var(--terminal-border)';
-        summaryRow.style.fontWeight = 'bold';
-        summaryRow.innerHTML = `
-            <td colspan="7" style="padding: 0.5rem; text-align: center; color: var(--terminal-green);">
-                Total Data Points: ${tbody.rows.length - 1} | Generated: ${new Date().toLocaleString()}
-            </td>
-        `;
-        
-        console.log('✅ Data table populated successfully');
-    }
-
-    // Download trajectory data
-    downloadTrajectoryData() {
-        console.log('📥 downloadTrajectoryData called');
-        if (!this.trajectoryData) {
-            console.error('❌ No trajectory data available for download');
-            this.showAlert('No trajectory data available', 'danger');
-            return;
-        }
-
-        console.log('✅ Trajectory data available for download:', this.trajectoryData);
-
-        // Prepare data for download
-        const downloadData = {
-            metadata: {
-                generated_at: new Date().toISOString(),
-                trajectories_count: this.trajectoryData.trajectories_generated || 0,
-                prediction_horizon: this.trajectoryData.prediction_horizon || 0,
-                model_info: "LSTM + GRU Neural Network",
-                prediction_accuracy: "94.2%"
-            },
-            trajectories: this.trajectoryData.predictions || this.trajectoryData.satellite_trajectories || []
-        };
-
-        console.log('📊 Download data prepared:', downloadData);
-
-        // Create downloadable file
-        const dataStr = JSON.stringify(downloadData, null, 2);
-        const dataBlob = new Blob([dataStr], { type: 'application/json' });
-        const url = URL.createObjectURL(dataBlob);
-        
-        // Create download link
-        const downloadLink = document.createElement('a');
-        downloadLink.href = url;
-        downloadLink.download = `astraeus_trajectory_predictions_${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.json`;
-        
-        console.log('💾 Download filename:', downloadLink.download);
-        
-        // Trigger download
-        document.body.appendChild(downloadLink);
-        downloadLink.click();
-        document.body.removeChild(downloadLink);
-        
-        // Clean up
-        URL.revokeObjectURL(url);
-        
-        console.log('✅ Download triggered successfully');
-        this.showAlert('✅ Trajectory data downloaded successfully', 'success');
-    }
-
-    // Helper method to add 3D trajectory paths
-    add3DTrajectoryPaths(scene) {
-        const trajectories = this.trajectoryData.predictions || this.trajectoryData.satellite_trajectories || [];
-        const colors = [0x00ff00, 0x00ffff, 0xffb000, 0xff4444, 0xff00ff];
-        
-        if (Array.isArray(trajectories)) {
-            trajectories.forEach((traj, index) => {
-                if (traj.positions && Array.isArray(traj.positions)) {
-                    const points = traj.positions.map(pos => new THREE.Vector3(pos.x, pos.y, pos.z));
-                    const geometry = new THREE.BufferGeometry().setFromPoints(points);
-                    const material = new THREE.LineBasicMaterial({ 
-                        color: colors[index % colors.length],
-                        transparent: true,
-                        opacity: 0.8
-                    });
-                    const line = new THREE.Line(geometry, material);
-                    scene.add(line);
-                }
-            });
-        } else {
-            // Handle object format
-            Object.keys(trajectories).forEach((objectId, index) => {
-                const traj = trajectories[objectId];
-                if (traj.positions && Array.isArray(traj.positions)) {
-                    const points = traj.positions.map(pos => new THREE.Vector3(pos.x, pos.y, pos.z));
-                    const geometry = new THREE.BufferGeometry().setFromPoints(points);
-                    const material = new THREE.LineBasicMaterial({ 
-                        color: colors[index % colors.length],
-                        transparent: true,
-                        opacity: 0.8
-                    });
-                    const line = new THREE.Line(geometry, material);
-                    scene.add(line);
-                }
-            });
+        const target = (this.controls && this.controls.target) ? this.controls.target : new THREE.Vector3(0,0,0);
+        this.camera.position.set(target.x, target.y, target.z + len);
+        this.camera.lookAt(target);
+        if (this.controls) {
+            this.controls.target.set(0, 0, 0);
+            this.controls.update();
         }
     }
 
-    // Helper method to draw 2D trajectory paths
-    draw2DTrajectoryPaths(ctx, centerX, centerY, animationFrame = 0) {
-        const trajectories = this.trajectoryData.predictions || this.trajectoryData.satellite_trajectories || [];
-        const colors = ['#00ff00', '#00ffff', '#ffb000', '#ff4444', '#ff00ff'];
-        const scale = 0.005; // Scale factor for visualization
-        
-        if (Array.isArray(trajectories)) {
-            trajectories.forEach((traj, index) => {
-                if (traj.positions && Array.isArray(traj.positions)) {
-                    const color = colors[index % colors.length];
-                    
-                    // Animated line drawing
-                    const progress = animationFrame ? Math.min(1, animationFrame / 30) : 1;
-                    const pointsToShow = Math.floor(traj.positions.length * progress);
-                    
-                    ctx.strokeStyle = color;
-                    ctx.lineWidth = 2 + Math.sin(animationFrame * 0.1 + index) * 0.5;
-                    ctx.beginPath();
-                    
-                    for (let i = 0; i < pointsToShow; i++) {
-                        const pos = traj.positions[i];
-                        const x = centerX + pos.x * scale;
-                        const y = centerY + pos.y * scale;
-                        
-                        if (i === 0) {
-                            ctx.moveTo(x, y);
-                        } else {
-                            ctx.lineTo(x, y);
-                        }
-                    }
-                    
-                    ctx.stroke();
-                    
-                    // Draw animated start point
-                    if (traj.positions.length > 0) {
-                        const startPos = traj.positions[0];
-                        const radius = 3 + 2 * Math.sin(animationFrame * 0.2 + index);
-                        ctx.fillStyle = color;
-                        ctx.beginPath();
-                        ctx.arc(centerX + startPos.x * scale, centerY + startPos.y * scale, radius, 0, 2 * Math.PI);
-                        ctx.fill();
-                        
-                        // Add glow effect
-                        ctx.shadowColor = color;
-                        ctx.shadowBlur = 10;
-                        ctx.fill();
-                        ctx.shadowBlur = 0;
-                    }
-                    
-                    // Draw current position (animated)
-                    if (pointsToShow > 0 && pointsToShow < traj.positions.length) {
-                        const currentPos = traj.positions[pointsToShow - 1];
-                        const pulseRadius = 4 + 3 * Math.sin(animationFrame * 0.3);
-                        ctx.fillStyle = color;
-                        ctx.shadowColor = color;
-                        ctx.shadowBlur = 15;
-                        ctx.beginPath();
-                        ctx.arc(centerX + currentPos.x * scale, centerY + currentPos.y * scale, pulseRadius, 0, 2 * Math.PI);
-                        ctx.fill();
-                        ctx.shadowBlur = 0;
-                    }
-                }
-            });
-        } else {
-            // Handle object format
-            Object.keys(trajectories).forEach((objectId, index) => {
-                const traj = trajectories[objectId];
-                if (traj.positions && Array.isArray(traj.positions)) {
-                    const color = colors[index % colors.length];
-                    
-                    // Animated line drawing
-                    const progress = animationFrame ? Math.min(1, animationFrame / 30) : 1;
-                    const pointsToShow = Math.floor(traj.positions.length * progress);
-                    
-                    ctx.strokeStyle = color;
-                    ctx.lineWidth = 2 + Math.sin(animationFrame * 0.1 + index) * 0.5;
-                    ctx.beginPath();
-                    
-                    for (let i = 0; i < pointsToShow; i++) {
-                        const pos = traj.positions[i];
-                        const x = centerX + pos.x * scale;
-                        const y = centerY + pos.y * scale;
-                        
-                        if (i === 0) {
-                            ctx.moveTo(x, y);
-                        } else {
-                            ctx.lineTo(x, y);
-                        }
-                    }
-                    
-                    ctx.stroke();
-                    
-                    // Draw animated start point
-                    if (traj.positions.length > 0) {
-                        const startPos = traj.positions[0];
-                        const radius = 3 + 2 * Math.sin(animationFrame * 0.2 + index);
-                        ctx.fillStyle = color;
-                        ctx.beginPath();
-                        ctx.arc(centerX + startPos.x * scale, centerY + startPos.y * scale, radius, 0, 2 * Math.PI);
-                        ctx.fill();
-                        
-                        // Add glow effect
-                        ctx.shadowColor = color;
-                        ctx.shadowBlur = 10;
-                        ctx.fill();
-                        ctx.shadowBlur = 0;
-                    }
-                }
-            });
-        }
+    setDesiredCameraDistance(desired, target) {
+        const minD = (this.controls ? this.controls.minDistance : 5000);
+        const maxD = (this.controls ? this.controls.maxDistance : 80000);
+        this.desiredCameraDistance = Math.max(minD, Math.min(maxD, desired));
     }
 }
 
@@ -2349,258 +1839,5 @@ function clearTrajectories() {
 function resetCamera() {
     if (window.dashboard) {
         window.dashboard.resetCamera();
-    }
-}
-
-// Trajectory view switching function
-function switchTrajectoryView() {
-    console.log('🔄 Switching trajectory view...');
-    
-    const viewModeSelect = document.getElementById('trajectory-view-mode');
-    if (!viewModeSelect) {
-        console.error('❌ View mode select not found');
-        return;
-    }
-    
-    const viewMode = viewModeSelect.value;
-    console.log('📊 Selected view mode:', viewMode);
-    
-    const view3d = document.getElementById('trajectory-3d-view');
-    const view2d = document.getElementById('trajectory-2d-view');
-    const viewNumbers = document.getElementById('trajectory-numbers-view');
-    const placeholder = document.getElementById('trajectory-placeholder');
-    
-    console.log('🔍 View elements found:', {
-        view3d: !!view3d,
-        view2d: !!view2d, 
-        viewNumbers: !!viewNumbers,
-        placeholder: !!placeholder
-    });
-    
-    // Hide all views first
-    if (view3d) view3d.style.display = 'none';
-    if (view2d) view2d.style.display = 'none';
-    if (viewNumbers) viewNumbers.style.display = 'none';
-    if (placeholder) placeholder.style.display = 'none';
-    
-    // Show selected view with animation
-    let targetView = null;
-    
-    switch(viewMode) {
-        case '3d':
-            if (view3d) {
-                targetView = view3d;
-                console.log('🎮 Switching to 3D view');
-                if (window.dashboard && window.dashboard.trajectoryData) {
-                    window.dashboard.show3DTrajectoryView();
-                } else {
-                    console.warn('⚠️ No trajectory data available for 3D view');
-                }
-            }
-            break;
-        case '2d':
-            if (view2d) {
-                targetView = view2d;
-                console.log('📈 Switching to 2D view');
-                if (window.dashboard && window.dashboard.trajectoryData) {
-                    window.dashboard.show2DTrajectoryView();
-                } else {
-                    console.warn('⚠️ No trajectory data available for 2D view');
-                }
-            }
-            break;
-        case 'numbers':
-            if (viewNumbers) {
-                targetView = viewNumbers;
-                console.log('📊 Switching to numbers/data table view');
-                if (window.dashboard && window.dashboard.trajectoryData) {
-                    window.dashboard.showNumbersTrajectoryView();
-                } else {
-                    console.warn('⚠️ No trajectory data available for data table view');
-                }
-            }
-            break;
-    }
-    
-    if (targetView) {
-        targetView.style.display = 'block';
-        targetView.style.animation = 'fadeInScale 0.5s ease-out';
-        console.log('✅ View switched to:', viewMode);
-    } else {
-        console.error('❌ Failed to switch view - target view not found');
-        if (placeholder) {
-            placeholder.style.display = 'block';
-        }
-    }
-}
-
-// Download trajectory data
-function downloadTrajectoryData() {
-    if (window.dashboard && window.dashboard.trajectoryData) {
-        window.dashboard.downloadTrajectoryData();
-    } else {
-        window.dashboard.showAlert('No trajectory data available to download', 'warning');
-    }
-}
-
-// Generate matplotlib trajectory plot
-function generateTrajectoryPlot() {
-    console.log('🎨 Generating matplotlib trajectory plot...');
-    
-    const placeholder = document.getElementById('trajectory-plot-placeholder');
-    const loading = document.getElementById('trajectory-plot-loading');
-    const content = document.getElementById('trajectory-plot-content');
-    const downloadBtn = document.getElementById('download-plot-btn');
-    
-    // Show loading state
-    if (placeholder) placeholder.style.display = 'none';
-    if (loading) loading.style.display = 'block';
-    if (content) content.style.display = 'none';
-    if (downloadBtn) downloadBtn.style.display = 'none';
-    
-    // Call API to generate plot
-    fetch('/api/trajectory-plot', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json'
-        }
-    })
-    .then(response => response.json())
-    .then(data => {
-        console.log('📊 Plot generation response:', data);
-        
-        if (data.success && data.plot_image) {
-            // Show the plot
-            const plotImage = document.getElementById('trajectory-plot-image');
-            const plotInfo = document.getElementById('trajectory-plot-info');
-            
-            if (plotImage) {
-                plotImage.src = 'data:image/png;base64,' + data.plot_image;
-                // Store the image data for download
-                window.currentPlotData = data.plot_image;
-            }
-            
-            if (plotInfo) {
-                plotInfo.innerHTML = `
-                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
-                        <div>
-                            <span style="color: var(--terminal-green); font-weight: bold;">Trajectories:</span>
-                            <span style="color: var(--text-primary);">${data.trajectories_count} satellites</span>
-                        </div>
-                        <div>
-                            <span style="color: var(--terminal-amber); font-weight: bold;">Prediction Horizon:</span>
-                            <span style="color: var(--text-primary);">${data.prediction_horizon} hours</span>
-                        </div>
-                        <div>
-                            <span style="color: var(--terminal-cyan); font-weight: bold;">Generated:</span>
-                            <span style="color: var(--text-primary);">${new Date(data.timestamp).toLocaleString()}</span>
-                        </div>
-                        <div>
-                            <span style="color: var(--terminal-magenta); font-weight: bold;">Visualization:</span>
-                            <span style="color: var(--text-primary);">Matplotlib (Static)</span>
-                        </div>
-                    </div>
-                    <div style="margin-top: 1rem; padding: 1rem; background: var(--terminal-secondary); border-radius: 4px;">
-                        <h4 style="color: var(--terminal-green); margin-bottom: 0.5rem;">Plot Details:</h4>
-                        <ul style="margin: 0; padding-left: 1.5rem; color: var(--text-secondary); line-height: 1.6;">
-                            <li><strong>XY Projection:</strong> Orbital plane view showing satellite paths</li>
-                            <li><strong>XZ Projection:</strong> Side view of orbital inclinations</li>
-                            <li><strong>YZ Projection:</strong> Cross-sectional orbital view</li>
-                            <li><strong>3D View:</strong> Complete three-dimensional trajectory visualization</li>
-                        </ul>
-                    </div>
-                `;
-            }
-            
-            // Show content and hide loading
-            if (loading) loading.style.display = 'none';
-            if (content) content.style.display = 'block';
-            if (downloadBtn) downloadBtn.style.display = 'inline-block';
-            
-            window.dashboard.showAlert('✅ Trajectory plot generated successfully', 'success');
-        } else {
-            throw new Error(data.error || 'Failed to generate plot');
-        }
-    })
-    .catch(error => {
-        console.error('❌ Plot generation error:', error);
-        
-        // Show error state
-        if (loading) loading.style.display = 'none';
-        if (placeholder) {
-            placeholder.style.display = 'block';
-            placeholder.innerHTML = `
-                <div style="color: var(--danger-color);">
-                    <i class="fas fa-exclamation-triangle" style="font-size: 3rem; margin-bottom: 1rem;"></i>
-                    <h3>Plot Generation Failed</h3>
-                    <p>${error.message}</p>
-                    <button class="btn btn-primary" onclick="generateTrajectoryPlot()" style="margin-top: 1rem;">
-                        <i class="fas fa-retry"></i>
-                        Try Again
-                    </button>
-                </div>
-            `;
-        }
-        
-        window.dashboard.showAlert('❌ Failed to generate trajectory plot: ' + error.message, 'danger');
-    });
-}
-
-// Download matplotlib plot
-function downloadTrajectoryPlot() {
-    if (window.currentPlotData) {
-        const link = document.createElement('a');
-        link.href = 'data:image/png;base64,' + window.currentPlotData;
-        link.download = 'astraeus_trajectory_plot_' + new Date().toISOString().slice(0,19).replace(/:/g, '-') + '.png';
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        
-        window.dashboard.showAlert('📥 Trajectory plot downloaded', 'success');
-    } else {
-        window.dashboard.showAlert('No plot data available to download', 'warning');
-    }
-}
-
-// Fullscreen and mouse lock functions for 3D visualization
-function enterFullscreen3D() {
-    const container = document.getElementById('visualization-container');
-    if (container.requestFullscreen) {
-        container.requestFullscreen();
-    } else if (container.webkitRequestFullscreen) {
-        container.webkitRequestFullscreen();
-    } else if (container.msRequestFullscreen) {
-        container.msRequestFullscreen();
-    }
-    
-    // Enable pointer lock for free camera movement
-    container.addEventListener('click', () => {
-        if (container.requestPointerLock) {
-            container.requestPointerLock();
-        }
-    });
-}
-
-function exitFullscreen3D() {
-    if (document.exitFullscreen) {
-        document.exitFullscreen();
-    } else if (document.webkitExitFullscreen) {
-        document.webkitExitFullscreen();
-    } else if (document.msExitFullscreen) {
-        document.msExitFullscreen();
-    }
-    
-    // Exit pointer lock
-    if (document.exitPointerLock) {
-        document.exitPointerLock();
-    }
-}
-
-// Toggle fullscreen
-function toggle3DFullscreen() {
-    if (document.fullscreenElement || document.webkitFullscreenElement || document.msFullscreenElement) {
-        exitFullscreen3D();
-    } else {
-        enterFullscreen3D();
     }
 }
