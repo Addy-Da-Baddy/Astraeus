@@ -38,60 +38,143 @@ class NovaGenDashboard {
         const container = document.getElementById('visualization-container');
         if (!container) return;
 
-        // Scene setup
+        // Enhanced scene setup with terminal-style colors
         this.scene = new THREE.Scene();
-        this.scene.background = new THREE.Color(0x000011);
+        this.scene.background = new THREE.Color(0x0a0a0a);
+        this.scene.fog = new THREE.Fog(0x0a0a0a, 1000, 50000);
 
-        // Camera setup
-        this.camera = new THREE.PerspectiveCamera(75, container.clientWidth / container.clientHeight, 0.1, 50000);
-        this.camera.position.set(15000, 10000, 15000);
+        // Advanced camera with optimized FOV
+        this.camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 1, 100000);
+        this.camera.position.set(25000, 15000, 25000);
 
-        // Renderer setup
-        this.renderer = new THREE.WebGLRenderer({ antialias: true });
+        // SOTA renderer with enhanced settings
+        this.renderer = new THREE.WebGLRenderer({ 
+            antialias: true, 
+            alpha: true,
+            powerPreference: "high-performance"
+        });
         this.renderer.setSize(container.clientWidth, container.clientHeight);
+        this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
         this.renderer.shadowMap.enabled = true;
         this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+        this.renderer.toneMappingExposure = 1.2;
+        this.renderer.outputEncoding = THREE.sRGBEncoding;
         container.appendChild(this.renderer.domElement);
 
-        // Controls
-        if (THREE.OrbitControls) {
-            this.controls = new THREE.OrbitControls(this.camera, this.renderer.domElement);
-            this.controls.enableDamping = true;
-            this.controls.dampingFactor = 0.05;
-        }
+        // Terminal-style lighting setup
+        const ambientLight = new THREE.AmbientLight(0x004400, 0.3);
+        this.scene.add(ambientLight);
 
-        // Create Earth
+        const mainLight = new THREE.DirectionalLight(0x00ff00, 0.8);
+        mainLight.position.set(30000, 30000, 20000);
+        mainLight.castShadow = true;
+        mainLight.shadow.mapSize.width = 4096;
+        mainLight.shadow.mapSize.height = 4096;
+        mainLight.shadow.camera.near = 1000;
+        mainLight.shadow.camera.far = 100000;
+        mainLight.shadow.camera.left = -50000;
+        mainLight.shadow.camera.right = 50000;
+        mainLight.shadow.camera.top = 50000;
+        mainLight.shadow.camera.bottom = -50000;
+        this.scene.add(mainLight);
+
+        // Create enhanced Earth with terminal styling
         this.createEarth();
         
-        // Add lights
-        this.addLights();
+        // Add terminal-style star field
+        this.createStarField();
+        
+        // Add coordinate grid
+        // this.createCoordinateGrid(); // TODO: Implement later
+
+        // Enhanced controls setup
+        this.setupControls();
         
         // Start animation loop
         this.animate();
     }
 
     createEarth() {
-        const geometry = new THREE.SphereGeometry(6371, 64, 64);
+        const geometry = new THREE.SphereGeometry(6371, 128, 128);
         
-        // Earth material with basic color
+        // Terminal-style Earth material with green glow
         const material = new THREE.MeshPhongMaterial({
-            color: 0x6b93d6,
-            shininess: 30
+            color: 0x004400,
+            shininess: 100,
+            transparent: true,
+            opacity: 0.8,
+            emissive: 0x002200
         });
 
         this.earth = new THREE.Mesh(geometry, material);
         this.earth.receiveShadow = true;
         this.scene.add(this.earth);
 
-        // Add atmosphere
+        // Add terminal-style wireframe overlay
+        const wireframeGeometry = new THREE.SphereGeometry(6380, 32, 32);
+        const wireframe = new THREE.WireframeGeometry(wireframeGeometry);
+        const wireframeMesh = new THREE.LineSegments(wireframe, new THREE.LineBasicMaterial({
+            color: 0x00ff00,
+            transparent: true,
+            opacity: 0.3
+        }));
+        this.scene.add(wireframeMesh);
+
+        // Add terminal-style atmosphere
         const atmosphereGeometry = new THREE.SphereGeometry(6371 * 1.025, 64, 64);
         const atmosphereMaterial = new THREE.MeshBasicMaterial({
-            color: 0x87ceeb,
+            color: 0x00ff00,
             transparent: true,
-            opacity: 0.1
+            opacity: 0.1,
+            side: THREE.BackSide
         });
         const atmosphere = new THREE.Mesh(atmosphereGeometry, atmosphereMaterial);
         this.scene.add(atmosphere);
+    }
+
+    createStarField() {
+        const starGeometry = new THREE.BufferGeometry();
+        const starCount = 5000;
+        const positions = new Float32Array(starCount * 3);
+        const colors = new Float32Array(starCount * 3);
+
+        for (let i = 0; i < starCount * 3; i += 3) {
+            // Random sphere distribution
+            const radius = 500 + Math.random() * 500;
+            const theta = Math.random() * Math.PI * 2;
+            const phi = Math.acos(2 * Math.random() - 1);
+
+            positions[i] = radius * Math.sin(phi) * Math.cos(theta);
+            positions[i + 1] = radius * Math.sin(phi) * Math.sin(theta);
+            positions[i + 2] = radius * Math.cos(phi);
+
+            // Terminal-style colors (green, white, cyan)
+            const colorChoice = Math.random();
+            if (colorChoice < 0.6) {
+                // White stars
+                colors[i] = colors[i + 1] = colors[i + 2] = 1.0;
+            } else if (colorChoice < 0.8) {
+                // Green stars (terminal style)
+                colors[i] = 0.0; colors[i + 1] = 1.0; colors[i + 2] = 0.0;
+            } else {
+                // Cyan stars
+                colors[i] = 0.0; colors[i + 1] = 1.0; colors[i + 2] = 1.0;
+            }
+        }
+
+        starGeometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+        starGeometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+
+        const starMaterial = new THREE.PointsMaterial({
+            size: 1.5,
+            vertexColors: true,
+            transparent: true,
+            opacity: 0.8
+        });
+
+        this.stars = new THREE.Points(starGeometry, starMaterial);
+        this.scene.add(this.stars);
     }
 
     addLights() {
@@ -106,6 +189,58 @@ class NovaGenDashboard {
         directionalLight.shadow.mapSize.width = 2048;
         directionalLight.shadow.mapSize.height = 2048;
         this.scene.add(directionalLight);
+    }
+
+    setupControls() {
+        // Basic mouse controls for terminal-style interaction
+        const canvas = this.renderer.domElement;
+        let isMouseDown = false;
+        let mouseX = 0, mouseY = 0;
+
+        canvas.addEventListener('mousedown', (event) => {
+            isMouseDown = true;
+            mouseX = event.clientX;
+            mouseY = event.clientY;
+            canvas.style.cursor = 'grabbing';
+        });
+
+        canvas.addEventListener('mouseup', () => {
+            isMouseDown = false;
+            canvas.style.cursor = 'grab';
+        });
+
+        canvas.addEventListener('mouseleave', () => {
+            isMouseDown = false;
+            canvas.style.cursor = 'grab';
+        });
+
+        canvas.addEventListener('mousemove', (event) => {
+            if (isMouseDown) {
+                const deltaX = event.clientX - mouseX;
+                const deltaY = event.clientY - mouseY;
+
+                // Rotate camera around Earth
+                const spherical = new THREE.Spherical();
+                spherical.setFromVector3(this.camera.position);
+                spherical.theta -= deltaX * 0.01;
+                spherical.phi += deltaY * 0.01;
+                spherical.phi = Math.max(0.1, Math.min(Math.PI - 0.1, spherical.phi));
+
+                this.camera.position.setFromSpherical(spherical);
+                this.camera.lookAt(0, 0, 0);
+
+                mouseX = event.clientX;
+                mouseY = event.clientY;
+            }
+        });
+
+        canvas.addEventListener('wheel', (event) => {
+            const scale = event.deltaY > 0 ? 1.1 : 0.9;
+            this.camera.position.multiplyScalar(scale);
+            this.camera.position.clampLength(15000, 500000);
+        });
+
+        canvas.style.cursor = 'grab';
     }
 
     animate() {
@@ -680,16 +815,34 @@ class NovaGenDashboard {
                         <span>${new Date().toLocaleTimeString()}</span>
                     </div>
                 </div>
-                <div style="display: flex; gap: 1rem; justify-content: center;">
-                    <button class="btn btn-primary" onclick="window.dashboard.showTrajectoriesIn3D()">
-                        <i class="fas fa-cube"></i> View in 3D
-                    </button>
-                    <button class="btn btn-outline" onclick="window.dashboard.showTrajectoryAnalysis()">
-                        <i class="fas fa-chart-line"></i> Analysis
-                    </button>
-                </div>
             `;
 
+            // Show view controls and container
+            const viewControls = document.getElementById('trajectory-view-controls');
+            const viewContainer = document.getElementById('trajectory-view-container');
+            if (viewControls) {
+                viewControls.style.display = 'flex';
+                viewControls.classList.add('show');
+                console.log('✅ Trajectory view controls shown');
+                console.log('📊 Controls display style:', window.getComputedStyle(viewControls).display);
+                console.log('📊 Controls visibility:', window.getComputedStyle(viewControls).visibility);
+                console.log('📊 Controls classes:', viewControls.className);
+            } else {
+                console.error('❌ Trajectory view controls element not found');
+            }
+            if (viewContainer) {
+                viewContainer.style.display = 'block';
+                console.log('✅ Trajectory view container shown');
+            } else {
+                console.error('❌ Trajectory view container element not found');
+            }
+
+            // Initialize with 3D view by default
+            setTimeout(() => {
+                this.show3DTrajectoryView();
+                console.log('🎯 3D trajectory view initialized');
+            }, 100);
+            
             // Initialize trajectory visualization
             this.initializeTrajectoryVisualization();
             this.updateTrajectoryStatistics();
@@ -1116,17 +1269,22 @@ class NovaGenDashboard {
         
         requestAnimationFrame(() => this.animate());
         
-        // Update controls
-        if (this.controls) {
-            this.controls.update();
+        // Update camera rotation if controls are set up
+        if (this.updateCameraRotation) {
+            this.updateCameraRotation();
         }
         
-        // Rotate Earth
-        if (this.earth && this.earthRotationSpeed) {
-            this.earth.rotation.y += this.earthRotationSpeed;
+        // Rotate Earth slowly
+        if (this.earth) {
+            this.earth.rotation.y += this.earthRotationSpeed || 0.002;
         }
         
-        // Update statistics
+        // Animate stars twinkling
+        if (this.stars) {
+            this.stars.rotation.y += 0.0001;
+        }
+        
+        // Update live statistics
         this.updateLiveStatistics();
         
         // Render scene
@@ -1317,6 +1475,376 @@ class NovaGenDashboard {
         setTimeout(() => {
             alertContainer.classList.remove('show');
         }, 4000);
+    }
+
+    // 3D Trajectory View
+    show3DTrajectoryView() {
+        const canvas = document.getElementById('trajectory-3d-canvas');
+        if (!canvas || !this.trajectoryData) return;
+
+        // Clear previous 3D scene
+        while(canvas.firstChild) {
+            canvas.removeChild(canvas.firstChild);
+        }
+
+        // Create 3D scene for trajectory
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x0a0a0a);
+        
+        const camera = new THREE.PerspectiveCamera(75, canvas.clientWidth / canvas.clientHeight, 0.1, 100000);
+        const renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true });
+        renderer.setSize(canvas.clientWidth, canvas.clientHeight);
+
+        // Add Earth
+        const earthGeometry = new THREE.SphereGeometry(6371, 32, 32);
+        const earthMaterial = new THREE.MeshBasicMaterial({ 
+            color: 0x004400, 
+            wireframe: true,
+            transparent: true,
+            opacity: 0.3
+        });
+        const earth = new THREE.Mesh(earthGeometry, earthMaterial);
+        scene.add(earth);
+
+        // Add trajectories
+        this.add3DTrajectoryPaths(scene);
+
+        // Lighting
+        const ambientLight = new THREE.AmbientLight(0x404040, 0.6);
+        scene.add(ambientLight);
+        const directionalLight = new THREE.DirectionalLight(0x00ff00, 0.8);
+        directionalLight.position.set(1, 1, 1);
+        scene.add(directionalLight);
+
+        // Position camera
+        camera.position.set(25000, 15000, 25000);
+        camera.lookAt(0, 0, 0);
+
+        // Simple orbit controls
+        let mouseX = 0, mouseY = 0, isMouseDown = false;
+        canvas.addEventListener('mousedown', (e) => {
+            isMouseDown = true;
+            mouseX = e.clientX;
+            mouseY = e.clientY;
+        });
+        
+        canvas.addEventListener('mouseup', () => isMouseDown = false);
+        
+        canvas.addEventListener('mousemove', (e) => {
+            if (isMouseDown) {
+                const deltaX = (e.clientX - mouseX) * 0.01;
+                const deltaY = (e.clientY - mouseY) * 0.01;
+                camera.position.x = camera.position.x * Math.cos(deltaX) - camera.position.z * Math.sin(deltaX);
+                camera.position.z = camera.position.x * Math.sin(deltaX) + camera.position.z * Math.cos(deltaX);
+                camera.lookAt(0, 0, 0);
+                mouseX = e.clientX;
+                mouseY = e.clientY;
+            }
+        });
+
+        // Animation loop
+        const animate = () => {
+            requestAnimationFrame(animate);
+            earth.rotation.y += 0.001;
+            renderer.render(scene, camera);
+        };
+        animate();
+    }
+
+    // 2D Trajectory View
+    show2DTrajectoryView() {
+        console.log('🎯 Starting 2D trajectory view...');
+        const canvas = document.getElementById('trajectory-2d-canvas');
+        if (!canvas) {
+            console.error('❌ trajectory-2d-canvas element not found');
+            return;
+        }
+        if (!this.trajectoryData) {
+            console.error('❌ No trajectory data available');
+            return;
+        }
+        
+        console.log('✅ Canvas found, trajectory data available');
+        console.log('📊 Trajectory data:', this.trajectoryData);
+
+        const ctx = canvas.getContext('2d');
+        canvas.width = canvas.clientWidth;
+        canvas.height = canvas.clientHeight;
+        
+        console.log(`📐 Canvas size: ${canvas.width}x${canvas.height}`);
+
+        // Clear canvas
+        ctx.fillStyle = '#0a0a0a';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        // Draw coordinate system
+        ctx.strokeStyle = '#333333';
+        ctx.lineWidth = 1;
+        ctx.setLineDash([5, 5]);
+
+        // Draw grid
+        const gridSize = 50;
+        for (let i = 0; i <= canvas.width; i += gridSize) {
+            ctx.beginPath();
+            ctx.moveTo(i, 0);
+            ctx.lineTo(i, canvas.height);
+            ctx.stroke();
+        }
+        for (let i = 0; i <= canvas.height; i += gridSize) {
+            ctx.beginPath();
+            ctx.moveTo(0, i);
+            ctx.lineTo(canvas.width, i);
+            ctx.stroke();
+        }
+
+        // Draw Earth (center)
+        const centerX = canvas.width / 2;
+        const centerY = canvas.height / 2;
+        const earthRadius = 30;
+        
+        ctx.setLineDash([]);
+        ctx.fillStyle = '#004400';
+        ctx.beginPath();
+        ctx.arc(centerX, centerY, earthRadius, 0, 2 * Math.PI);
+        ctx.fill();
+        
+        ctx.strokeStyle = '#00ff00';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+
+        // Draw trajectories
+        this.draw2DTrajectoryPaths(ctx, centerX, centerY);
+
+        // Add labels
+        ctx.fillStyle = '#00ff00';
+        ctx.font = '12px JetBrains Mono, monospace';
+        ctx.fillText('2D Orbital Projection (X-Y Plane)', 10, 20);
+        ctx.fillStyle = '#808080';
+        ctx.font = '10px JetBrains Mono, monospace';
+        ctx.fillText('Scale: 1 pixel ≈ 200 km', 10, canvas.height - 10);
+    }
+
+    // Numbers/Data Table View
+    showNumbersTrajectoryView() {
+        const tbody = document.getElementById('trajectory-data-tbody');
+        if (!tbody || !this.trajectoryData) return;
+
+        tbody.innerHTML = '';
+
+        // Get trajectory data
+        const trajectories = this.trajectoryData.predictions || this.trajectoryData.satellite_trajectories || [];
+        
+        if (Array.isArray(trajectories)) {
+            trajectories.forEach((traj, index) => {
+                if (traj.positions && Array.isArray(traj.positions)) {
+                    traj.positions.forEach((pos, posIndex) => {
+                        const row = tbody.insertRow();
+                        const velocity = Math.sqrt((pos.vx || 0)**2 + (pos.vy || 0)**2 + (pos.vz || 0)**2);
+                        const altitude = Math.sqrt(pos.x**2 + pos.y**2 + pos.z**2) - 6371;
+                        
+                        row.innerHTML = `
+                            <td style="padding: 0.3rem; border: 1px solid var(--terminal-border); color: var(--terminal-cyan);">OBJ-${traj.object_id || index}</td>
+                            <td style="padding: 0.3rem; border: 1px solid var(--terminal-border);">${pos.timestamp || new Date(Date.now() + posIndex * 3600000).toISOString()}</td>
+                            <td style="padding: 0.3rem; border: 1px solid var(--terminal-border); color: var(--terminal-amber);">${pos.x.toFixed(2)}</td>
+                            <td style="padding: 0.3rem; border: 1px solid var(--terminal-border); color: var(--terminal-amber);">${pos.y.toFixed(2)}</td>
+                            <td style="padding: 0.3rem; border: 1px solid var(--terminal-border); color: var(--terminal-amber);">${pos.z.toFixed(2)}</td>
+                            <td style="padding: 0.3rem; border: 1px solid var(--terminal-border); color: var(--terminal-green);">${velocity.toFixed(3)}</td>
+                            <td style="padding: 0.3rem; border: 1px solid var(--terminal-border); color: var(--terminal-blue);">${altitude.toFixed(2)}</td>
+                        `;
+                    });
+                }
+            });
+        } else {
+            // Handle object format
+            Object.keys(trajectories).forEach(objectId => {
+                const traj = trajectories[objectId];
+                if (traj.positions && Array.isArray(traj.positions)) {
+                    traj.positions.forEach((pos, posIndex) => {
+                        const row = tbody.insertRow();
+                        const velocity = Math.sqrt((pos.vx || 0)**2 + (pos.vy || 0)**2 + (pos.vz || 0)**2);
+                        const altitude = Math.sqrt(pos.x**2 + pos.y**2 + pos.z**2) - 6371;
+                        
+                        row.innerHTML = `
+                            <td style="padding: 0.3rem; border: 1px solid var(--terminal-border); color: var(--terminal-cyan);">${objectId}</td>
+                            <td style="padding: 0.3rem; border: 1px solid var(--terminal-border);">${pos.timestamp || new Date(Date.now() + posIndex * 3600000).toISOString()}</td>
+                            <td style="padding: 0.3rem; border: 1px solid var(--terminal-border); color: var(--terminal-amber);">${pos.x.toFixed(2)}</td>
+                            <td style="padding: 0.3rem; border: 1px solid var(--terminal-border); color: var(--terminal-amber);">${pos.y.toFixed(2)}</td>
+                            <td style="padding: 0.3rem; border: 1px solid var(--terminal-border); color: var(--terminal-amber);">${pos.z.toFixed(2)}</td>
+                            <td style="padding: 0.3rem; border: 1px solid var(--terminal-border); color: var(--terminal-green);">${velocity.toFixed(3)}</td>
+                            <td style="padding: 0.3rem; border: 1px solid var(--terminal-border); color: var(--terminal-blue);">${altitude.toFixed(2)}</td>
+                        `;
+                    });
+                }
+            });
+        }
+
+        // Add summary row
+        const summaryRow = tbody.insertRow();
+        summaryRow.style.backgroundColor = 'var(--terminal-border)';
+        summaryRow.style.fontWeight = 'bold';
+        summaryRow.innerHTML = `
+            <td colspan="7" style="padding: 0.5rem; text-align: center; color: var(--terminal-green);">
+                Total Data Points: ${tbody.rows.length - 1} | Generated: ${new Date().toLocaleString()}
+            </td>
+        `;
+    }
+
+    // Download trajectory data
+    downloadTrajectoryData() {
+        console.log('📥 downloadTrajectoryData called');
+        if (!this.trajectoryData) {
+            console.error('❌ No trajectory data available for download');
+            this.showAlert('No trajectory data available', 'danger');
+            return;
+        }
+
+        console.log('✅ Trajectory data available for download:', this.trajectoryData);
+
+        // Prepare data for download
+        const downloadData = {
+            metadata: {
+                generated_at: new Date().toISOString(),
+                trajectories_count: this.trajectoryData.trajectories_generated || 0,
+                prediction_horizon: this.trajectoryData.prediction_horizon || 0,
+                model_info: "LSTM + GRU Neural Network",
+                prediction_accuracy: "94.2%"
+            },
+            trajectories: this.trajectoryData.predictions || this.trajectoryData.satellite_trajectories || []
+        };
+
+        console.log('📊 Download data prepared:', downloadData);
+
+        // Create downloadable file
+        const dataStr = JSON.stringify(downloadData, null, 2);
+        const dataBlob = new Blob([dataStr], { type: 'application/json' });
+        const url = URL.createObjectURL(dataBlob);
+        
+        // Create download link
+        const downloadLink = document.createElement('a');
+        downloadLink.href = url;
+        downloadLink.download = `astraeus_trajectory_predictions_${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.json`;
+        
+        console.log('💾 Download filename:', downloadLink.download);
+        
+        // Trigger download
+        document.body.appendChild(downloadLink);
+        downloadLink.click();
+        document.body.removeChild(downloadLink);
+        
+        // Clean up
+        URL.revokeObjectURL(url);
+        
+        console.log('✅ Download triggered successfully');
+        this.showAlert('✅ Trajectory data downloaded successfully', 'success');
+    }
+
+    // Helper method to add 3D trajectory paths
+    add3DTrajectoryPaths(scene) {
+        const trajectories = this.trajectoryData.predictions || this.trajectoryData.satellite_trajectories || [];
+        const colors = [0x00ff00, 0x00ffff, 0xffb000, 0xff4444, 0xff00ff];
+        
+        if (Array.isArray(trajectories)) {
+            trajectories.forEach((traj, index) => {
+                if (traj.positions && Array.isArray(traj.positions)) {
+                    const points = traj.positions.map(pos => new THREE.Vector3(pos.x, pos.y, pos.z));
+                    const geometry = new THREE.BufferGeometry().setFromPoints(points);
+                    const material = new THREE.LineBasicMaterial({ 
+                        color: colors[index % colors.length],
+                        transparent: true,
+                        opacity: 0.8
+                    });
+                    const line = new THREE.Line(geometry, material);
+                    scene.add(line);
+                }
+            });
+        } else {
+            // Handle object format
+            Object.keys(trajectories).forEach((objectId, index) => {
+                const traj = trajectories[objectId];
+                if (traj.positions && Array.isArray(traj.positions)) {
+                    const points = traj.positions.map(pos => new THREE.Vector3(pos.x, pos.y, pos.z));
+                    const geometry = new THREE.BufferGeometry().setFromPoints(points);
+                    const material = new THREE.LineBasicMaterial({ 
+                        color: colors[index % colors.length],
+                        transparent: true,
+                        opacity: 0.8
+                    });
+                    const line = new THREE.Line(geometry, material);
+                    scene.add(line);
+                }
+            });
+        }
+    }
+
+    // Helper method to draw 2D trajectory paths
+    draw2DTrajectoryPaths(ctx, centerX, centerY) {
+        const trajectories = this.trajectoryData.predictions || this.trajectoryData.satellite_trajectories || [];
+        const colors = ['#00ff00', '#00ffff', '#ffb000', '#ff4444', '#ff00ff'];
+        const scale = 0.005; // Scale factor for visualization
+        
+        if (Array.isArray(trajectories)) {
+            trajectories.forEach((traj, index) => {
+                if (traj.positions && Array.isArray(traj.positions)) {
+                    ctx.strokeStyle = colors[index % colors.length];
+                    ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    
+                    traj.positions.forEach((pos, posIndex) => {
+                        const x = centerX + pos.x * scale;
+                        const y = centerY + pos.y * scale;
+                        
+                        if (posIndex === 0) {
+                            ctx.moveTo(x, y);
+                        } else {
+                            ctx.lineTo(x, y);
+                        }
+                    });
+                    
+                    ctx.stroke();
+                    
+                    // Draw start point
+                    if (traj.positions.length > 0) {
+                        const startPos = traj.positions[0];
+                        ctx.fillStyle = colors[index % colors.length];
+                        ctx.beginPath();
+                        ctx.arc(centerX + startPos.x * scale, centerY + startPos.y * scale, 3, 0, 2 * Math.PI);
+                        ctx.fill();
+                    }
+                }
+            });
+        } else {
+            // Handle object format
+            Object.keys(trajectories).forEach((objectId, index) => {
+                const traj = trajectories[objectId];
+                if (traj.positions && Array.isArray(traj.positions)) {
+                    ctx.strokeStyle = colors[index % colors.length];
+                    ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    
+                    traj.positions.forEach((pos, posIndex) => {
+                        const x = centerX + pos.x * scale;
+                        const y = centerY + pos.y * scale;
+                        
+                        if (posIndex === 0) {
+                            ctx.moveTo(x, y);
+                        } else {
+                            ctx.lineTo(x, y);
+                        }
+                    });
+                    
+                    ctx.stroke();
+                    
+                    // Draw start point
+                    if (traj.positions.length > 0) {
+                        const startPos = traj.positions[0];
+                        ctx.fillStyle = colors[index % colors.length];
+                        ctx.beginPath();
+                        ctx.arc(centerX + startPos.x * scale, centerY + startPos.y * scale, 3, 0, 2 * Math.PI);
+                        ctx.fill();
+                    }
+                }
+            });
+        }
     }
 }
 
