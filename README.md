@@ -1,11 +1,13 @@
 # NovaGen - Real-Time Orbital Collision Risk Prediction System
 
-*A cutting-edge space situational awareness platform that tracks thousands of satellites and predicts collision risks using advanced machine learning.*
+<p align="center"><em>A cutting-edge space situational awareness platform that tracks thousands of satellites and predicts collision risks using advanced machine learning.</em></p>
 
-[![Python](https://img.shields.io/badge/Python-3.8%2B-blue.svg)](https://www.python.org/)
-[![Flask](https://img.shields.io/badge/Flask-2.0+-black.svg)](https://flask.palletsprojects.com/)
-[![Three.js](https://img.shields.io/badge/Three.js-r128-blue.svg)](https://threejs.org/)
-[![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+<p align="center">
+  <a href="https://www.python.org/"><img src="https://img.shields.io/badge/Python-3.8%2B-blue.svg"></a>
+  <a href="https://flask.palletsprojects.com/"><img src="https://img.shields.io/badge/Flask-2.0+-black.svg"></a>
+  <a href="https://threejs.org/"><img src="https://img.shields.io/badge/Three.js-r128-blue.svg"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-green.svg"></a>
+</p>
 
 ## Overview
 
@@ -49,7 +51,22 @@ NovaGen is a comprehensive orbital collision risk prediction system that provide
 ## Quick Start
 
 ### Prerequisites
-- Python 3.8+
+- Python 3.13+
+- libraries:
+  - `Flask`
+  - `Flask-Cors`
+  - `Flask-Compress`
+  - `Flask-APScheduler`
+  - `requests`
+  - `numpy`
+  - `pandas`
+  - `scikit-learn`
+  - `xgboost`
+  - `lightgbm`
+  - `catboost`
+  - `torch`
+  - `matplotlib`
+  - `python-dotenv`
 - Git
 - Modern web browser
 
@@ -218,22 +235,6 @@ TLE_CACHE_DURATION=3600  # seconds
 }
 ```
 
-## Recent Updates
-
-### v2.1.0 - Enhanced Visualizations
-- **Black Background Theme**: Consistent space-accurate dark theme across all visualizations
-- **Full Orbit Display**: Trajectory visualization now shows complete satellite orbits including GEO altitudes
-- **Enhanced Camera Controls**: Improved zoom capabilities for viewing entire orbital paths
-- **Matching Earth Spheres**: Unified Earth appearance across 3D and trajectory views
-- **Professional Favicon**: Custom satellite-themed favicon for all pages
-
-### v2.0.0 - Major Enhancements
-- Complete UI/UX overhaul with modern space theme
-- Advanced 3D visualizations with Three.js
-- Ensemble machine learning pipeline
-- Real-time dashboard with live metrics
-- Background data processing and updates
-
 ### Development Setup
 ```bash
 # Fork and clone
@@ -266,6 +267,5 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - **Three.js Community**: For the amazing 3D graphics library
 - **Open Source ML Libraries**: Scikit-learn, XGBoost, PyTorch
 
-**Built with ❤️ for safer space operations**
-
-*Track. Predict. Protect.*
+<p align="center"><strong>Built with ❤️ for safer space operations</strong></p>
+<p align="center"><em>Track. Predict. Protect.</em></p>
