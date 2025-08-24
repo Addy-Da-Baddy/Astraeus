@@ -283,7 +283,7 @@ class NovaGenApp {
         
         // Update timestamp
         document.getElementById('last-update').textContent = 
-            `Last Update: ${new Date(data.timestamp).toLocaleTimeString()}`;
+            `Last Update: ${new Date(data.timestamp).toLocaleTimeString('en-US', { hour12: false })}`;
         
         // Update lists
         this.updateDebrisList(data.satellites);

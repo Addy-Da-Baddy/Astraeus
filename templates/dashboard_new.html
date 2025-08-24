@@ -240,14 +240,26 @@
         }
 
         .btn-outline {
-            background: transparent;
-            border: 1px solid var(--primary-color);
+            background: var(--bg-tertiary);
+            filter: brightness(1.2);
             color: var(--primary-color);
         }
 
         .btn-outline:hover {
             background: var(--primary-color);
             color: white;
+        }
+
+        .btn:disabled, .btn-outline:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+            background: rgba(255, 255, 255, 0.1);
+            color: var(--text-secondary);
+        }
+
+        .btn-outline:disabled:hover {
+            background: rgba(255, 255, 255, 0.1);
+            color: var(--text-secondary);
         }
 
         .quick-actions {
@@ -363,7 +375,6 @@
         }
 
         .satellite-item:hover {
-            background: rgba(255, 255, 255, 0.1);
             border-color: var(--primary-color);
         }
 
@@ -769,16 +780,6 @@
                     <div class="card" style="grid-column: span 3;">
                         <div class="card-header">
                             <h3 class="card-title">Earth & Satellite View</h3>
-                            <div>
-                                <button class="btn btn-outline" onclick="resetCamera()">
-                                    <i class="fas fa-home"></i>
-                                    Reset View
-                                </button>
-                                <button class="btn btn-primary" onclick="window.dashboard.toggleFullscreen()">
-                                    <i class="fas fa-expand"></i>
-                                    Fullscreen
-                                </button>
-                            </div>
                         </div>
                         <div class="viz-container" id="visualization-container" style="height: 600px;">
                             <div class="viz-legend" style="position: absolute; bottom: 10px; left: 10px; background: rgba(0,0,0,0.7); padding: 1rem; border-radius: 8px; z-index: 100;">
@@ -806,9 +807,20 @@
                             </div>
                             <div style="margin-bottom: 1rem;">
                                 <label style="display: block; margin-bottom: 0.5rem; font-size: 0.9rem;">View Distance</label>
-                                <input type="range" id="view-distance" min="20" max="200" step="5" value="120" 
+                                <input type="range" id="view-distance" min="20" max="200" step="5" value="120"
                                        oninput="window.dashboard.updateViewDistance(this.value)"
                                        style="width: 100%;">
+                            </div>
+                            <div style="margin-bottom: 1rem;">
+                                <label style="display: block; margin-bottom: 0.5rem; font-size: 0.9rem;">View Options</label>
+                                <div style="display: flex; gap: 0.5rem;">
+                                    <button class="btn btn-outline" onclick="resetCamera()" style="flex: 1;">
+                                        <i class="fas fa-home"></i> Reset
+                                    </button>
+                                    <button class="btn btn-primary" onclick="window.dashboard.toggleFullscreen()" style="flex: 1;">
+                                        <i class="fas fa-expand"></i> Full
+                                    </button>
+                                </div>
                             </div>
                             <button class="btn btn-outline" onclick="window.dashboard.resetSettings()" style="width: 100%;">
                                 <i class="fas fa-undo"></i> Reset Settings
@@ -948,36 +960,37 @@
                 <div class="grid grid-2">
                     <!-- Trajectory Visualization -->
                     <div class="card" style="grid-column: span 2;">
-                        <div class="card-header">
-                            <h3 class="card-title">Trajectory Visualization</h3>
-                            <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
-                                <button class="btn btn-success" onclick="runTrajectoryPrediction()">
+                        <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
+                            <h3 class="card-title" style="margin: 0 0.5rem 0 0; font-size: 1.1rem;">Trajectories</h3>
+                            <div style="display: flex; gap: 0.5rem; flex: 1; justify-content: flex-end;">
+                                <button class="btn btn-success" style="padding: 0.5rem 1rem; font-size: 0.85rem; flex-shrink: 0;" onclick="runTrajectoryPrediction()">
                                     <i class="fas fa-rocket"></i>
-                                    Generate New
+                                    Generate
                                 </button>
-                                <button class="btn btn-outline" onclick="clearTrajectories()">
+                                <button class="btn btn-outline" style="padding: 0.5rem 1rem; font-size: 0.85rem; flex-shrink: 0;" onclick="clearTrajectories()">
                                     <i class="fas fa-eraser"></i>
-                                    Clear All
+                                    Clear
                                 </button>
-                                <button class="btn btn-primary" onclick="window.dashboard.switchTrajectoryView('3d')">
+                                <button class="btn btn-primary" style="padding: 0.5rem 1rem; font-size: 0.85rem; min-width: 70px; flex-shrink: 0;" onclick="window.dashboard.switchTrajectoryView('3d')">
                                     <i class="fas fa-cube"></i>
                                     3D
                                 </button>
-                                <button class="btn btn-outline" onclick="window.dashboard.switchTrajectoryView('static')">
+                                <button class="btn btn-outline" style="padding: 0.5rem 1rem; font-size: 0.85rem; flex-shrink: 0;" onclick="window.dashboard.switchTrajectoryView('static')">
                                     <i class="fas fa-image"></i>
-                                    Static Plot
+                                    Plot
                                 </button>
-                                <button class="btn btn-outline" onclick="window.dashboard.downloadTrajectoryCSV()">
+                                <div style="width: 1px; height: 2rem; background: var(--border-color);"></div>
+                                <button class="btn btn-outline" id="csv-download-btn" style="padding: 0.5rem 1rem; font-size: 0.85rem; flex-shrink: 0;" onclick="window.dashboard.downloadTrajectoryCSV()" disabled>
                                     <i class="fas fa-download"></i>
-                                    Download CSV
+                                    CSV
                                 </button>
-                                <button class="btn btn-outline" onclick="window.dashboard.downloadTrajectoryPlot()">
+                                <button class="btn btn-outline" id="image-download-btn" style="padding: 0.5rem 1rem; font-size: 0.85rem; flex-shrink: 0;" onclick="window.dashboard.downloadTrajectoryPlot()" disabled>
                                     <i class="fas fa-file-image"></i>
-                                    Download Plot
+                                    Image
                                 </button>
-                                <button class="btn btn-outline" onclick="window.dashboard.showTrajectoryAnalysis()">
+                                <button class="btn btn-outline" id="analysis-btn" style="padding: 0.5rem 0.55rem; font-size: 0.8rem; flex-shrink: 0;" onclick="window.dashboard.showTrajectoryAnalysis()" disabled>
                                     <i class="fas fa-chart-line"></i>
-                                    Analysis
+                                    Analyse
                                 </button>
                             </div>
                         </div>
@@ -1019,7 +1032,23 @@
             <!-- Risk Alerts Tab -->
             <div id="alerts-tab" class="tab-content">
                 <h2><i class="fas fa-bell"></i> Risk Alerts & Warnings</h2>
-                
+
+                <!-- Risk Analysis Controls -->
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title"><i class="fas fa-shield-alt"></i> Collision Detection</h3>
+                        <button class="btn btn-primary" onclick="loadHighRiskSatellites()">
+                            <i class="fas fa-play"></i>
+                            Generate Analysis
+                        </button>
+                    </div>
+                    <div style="padding: 1rem; background: rgba(255, 255, 255, 0.05); border-radius: 8px;">
+                        <p style="margin: 0; font-size: 0.9rem; color: var(--text-secondary);">
+                            Click "Generate Analysis" to run collision detection and update risk alerts with the latest satellite data.
+                        </p>
+                    </div>
+                </div>
+
                 <!-- High-Risk Satellites List -->
                 <div class="card">
                     <div class="card-header">
@@ -1029,9 +1058,9 @@
                         </button>
                     </div>
                     <div id="high-risk-satellites-list">
-                        <div style="text-align: center; padding: 2rem;">
-                            <div class="loading"></div>
-                            <p>Loading high-risk satellites...</p>
+                        <div style="text-align: center; padding: 2rem; color: var(--text-secondary);">
+                            <i class="fas fa-exclamation-triangle" style="font-size: 2rem; margin-bottom: 1rem; opacity: 0.5;"></i>
+                            <p>Click "Generate Analysis" to identify high-risk satellites.</p>
                         </div>
                     </div>
                 </div>
@@ -1044,7 +1073,8 @@
                         </div>
                         <div id="active-alerts">
                             <div style="text-align: center; padding: 2rem; color: var(--text-secondary);">
-                                Loading alerts...
+                                <i class="fas fa-bell" style="font-size: 2rem; margin-bottom: 1rem; opacity: 0.5;"></i>
+                                <p>Click "Generate Analysis" to check for active alerts.</p>
                             </div>
                         </div>
                     </div>
@@ -1054,9 +1084,9 @@
                             <h3 class="card-title"><i class="fas fa-chart-line"></i> Risk Summary</h3>
                         </div>
                         <div id="risk-summary">
-                            <div style="text-align: center; padding: 2rem;">
-                                <div class="loading"></div>
-                                <p>Loading risk analysis...</p>
+                            <div style="text-align: center; padding: 2rem; color: var(--text-secondary);">
+                                <i class="fas fa-chart-line" style="font-size: 2rem; margin-bottom: 1rem; opacity: 0.5;"></i>
+                                <p>Click "Generate Analysis" to view risk summary.</p>
                             </div>
                         </div>
                     </div>
@@ -1069,7 +1099,8 @@
                     </div>
                     <div id="collision-warnings">
                         <div style="text-align: center; padding: 2rem; color: var(--text-secondary);">
-                            Loading collision analysis...
+                            <i class="fas fa-radiation" style="font-size: 2rem; margin-bottom: 1rem; opacity: 0.5;"></i>
+                            <p>Click "Generate Analysis" to check for collision warnings.</p>
                         </div>
                     </div>
                 </div>

@@ -335,7 +335,7 @@
                         HIGH-RISK CONJUNCTIONS: ${data.high_risk_count || 0} •
                         COLLISION PROBABILITY: ${(data.collision_probability || 0).toFixed(3)}% •
                         PREDICTION ACCURACY: 94.2% •
-                        LAST UPDATE: ${new Date().toLocaleTimeString()}
+                        LAST UPDATE: ${new Date().toLocaleTimeString('en-US', { hour12: false })}
                     `;
                 }
             } catch (error) {
