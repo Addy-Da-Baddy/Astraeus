@@ -122,7 +122,7 @@ class AstraeusDashboard {
         await this.initializeVisualization();
         await this.startRealTimeUpdates();
         this.setupEventListeners();
-        this.showAlert('🚀 Astraeus Dashboard initialized', 'success');
+        this.showAlert('<i class="fas fa-rocket"></i> Astraeus Dashboard initialized', 'success');
         
         // Center the view initially
         this.centerDefaultView(true);
@@ -517,7 +517,7 @@ class AstraeusDashboard {
         
         const html = satellites.map(sat => {
             const riskClass = sat.risk_level ? sat.risk_level.toLowerCase() : 'unknown';
-            const typeIcon = sat.is_debris ? '🗑️' : '🛰️';
+            const typeIcon = sat.is_debris ? '<i class="fas fa-trash"></i>' : '<i class="fas fa-satellite"></i>';
             
             return `
                 <div class="satellite-item" onclick="selectSatellite(${sat.id})">
@@ -715,7 +715,7 @@ class AstraeusDashboard {
                     <div class="satellite-item" onclick="selectSatellite(${sat.id})" style="cursor: pointer; border-left: 4px solid ${riskColor};">
                         <div class="satellite-header">
                             <div class="satellite-id">
-                                🛰️ ${sat.name || `Satellite #${sat.id}`}
+                                <i class="fas fa-satellite"></i> ${sat.name || `Satellite #${sat.id}`}
                                 <small style="color: var(--text-secondary);">(ID: ${sat.id})</small>
                             </div>
                             <div class="risk-badge risk-${sat.risk_level.toLowerCase()}">${sat.risk_level}</div>
@@ -760,7 +760,7 @@ class AstraeusDashboard {
                 </div>
             `;
         } else {
-            listContainer.innerHTML = '<div style="text-align: center; color: var(--success-color); padding: 2rem;">✅ No high-risk satellites detected</div>';
+            listContainer.innerHTML = '<div style="text-align: center; color: var(--success-color); padding: 2rem;"><i class="fas fa-check-circle"></i> No high-risk satellites detected</div>';
         }
         
         // Update active alerts
@@ -773,20 +773,20 @@ class AstraeusDashboard {
                     <div style="margin-bottom: 1rem;">
                         ${criticalCount > 0 ? `
                             <div style="padding: 1rem; background: rgba(220, 53, 69, 0.1); border-left: 4px solid var(--danger-color); border-radius: 4px; margin-bottom: 0.5rem;">
-                                <div style="font-weight: 600; color: var(--danger-color);">🚨 CRITICAL ALERT</div>
+                                <div style="font-weight: 600; color: var(--danger-color);"><i class="fas fa-siren-on"></i> CRITICAL ALERT</div>
                                 <div style="font-size: 0.9rem;">${criticalCount} satellites at critical risk level</div>
                             </div>
                         ` : ''}
                         ${highCount > 0 ? `
                             <div style="padding: 1rem; background: rgba(255, 193, 7, 0.1); border-left: 4px solid var(--warning-color); border-radius: 4px;">
-                                <div style="font-weight: 600; color: var(--warning-color);">⚠️ HIGH RISK</div>
+                                <div style="font-weight: 600; color: var(--warning-color);"><i class="fas fa-triangle-exclamation"></i> HIGH RISK</div>
                                 <div style="font-size: 0.9rem;">${highCount} satellites at high risk level</div>
                             </div>
                         ` : ''}
                     </div>
                 `;
             } else {
-                alertsContainer.innerHTML = '<div style="text-align: center; color: var(--success-color); padding: 2rem;">✅ No active alerts</div>';
+                alertsContainer.innerHTML = '<div style="text-align: center; color: var(--success-color); padding: 2rem;"><i class="fas fa-check-circle"></i> No active alerts</div>';
             }
         }
         
@@ -840,7 +840,7 @@ class AstraeusDashboard {
                 
                 collisionWarningsContainer.innerHTML = warningsHtml;
             } else {
-                collisionWarningsContainer.innerHTML = '<div style="text-align: center; color: var(--success-color); padding: 2rem;">✅ No collision warnings</div>';
+                collisionWarningsContainer.innerHTML = '<div style="text-align: center; color: var(--success-color); padding: 2rem;"><i class="fas fa-check-circle"></i> No collision warnings</div>';
             }
         }
     }
@@ -857,7 +857,6 @@ class AstraeusDashboard {
         // Set up periodic updates every 15 seconds
         setInterval(() => this.updateData(), 15000);
         
-        console.log('🔄 Real-time updates started (15s interval)');
     }
 
     async updateData() {
@@ -875,13 +874,12 @@ class AstraeusDashboard {
                 await this.updateSystemStatus(data);
                 
                 // Show status in console for debugging
-                console.log(`📊 Data updated: ${data.total_objects} objects, ${data.debris_count} debris, ${(data.collision_probability * 100).toFixed(3)}% risk`);
             } else {
-                console.warn('⚠️ No satellite data in response');
+                console.warn('No satellite data in response');
             }
             
         } catch (error) {
-            console.error('❌ Error updating data:', error);
+            console.error('Error updating data:', error);
             
             // Update UI to show error state
             document.getElementById('total-objects').textContent = 'Error';
@@ -893,7 +891,7 @@ class AstraeusDashboard {
 
     async runPrediction() {
         try {
-            this.showAlert('🔄 Running collision detection...', 'info');
+            this.showAlert('<i class="fas fa-rotate"></i> Running collision detection...', 'info');
             
             const resultContainer = document.getElementById('prediction-results');
             resultContainer.innerHTML = '<div style="text-align: center; padding: 2rem;"><div class="loading"></div><p>Analyzing orbital data...</p></div>';
@@ -937,7 +935,7 @@ class AstraeusDashboard {
                 </div>
             `;
 
-            this.showAlert('✅ Collision detection completed', 'success');
+            this.showAlert('<i class="fas fa-check-circle"></i> Collision detection completed', 'success');
             
         } catch (error) {
             console.error('Prediction error:', error);
@@ -947,7 +945,7 @@ class AstraeusDashboard {
 
     async runTrajectoryPrediction() {
         try {
-            this.showAlert('🚀 Generating trajectory predictions...', 'info');
+            this.showAlert('<i class="fas fa-rocket"></i> Generating trajectory predictions...', 'info');
             
             const resultContainer = document.getElementById('trajectory-results');
             const trajectoryContainer = document.getElementById('trajectory-container');
@@ -965,9 +963,6 @@ class AstraeusDashboard {
 
             // Store trajectory data for visualization
             this.trajectoryData = data;
-            console.log('📊 Trajectory data received:', data);
-            console.log('📊 Trajectories count:', data.trajectories_generated);
-            console.log('📊 Predictions/satellite_trajectories:', data.predictions || data.satellite_trajectories);
 
             // Display results
             resultContainer.innerHTML = `
@@ -1003,7 +998,7 @@ class AstraeusDashboard {
             // Initialize trajectory visualization
             this.initializeTrajectoryVisualization();
             this.updateTrajectoryStatistics();
-            this.showAlert('✅ Trajectory predictions completed', 'success');
+            this.showAlert('<i class="fas fa-check-circle"></i> Trajectory predictions completed', 'success');
             if (typeof switchToTab === 'function') {
                 switchToTab('trajectories');
             }
@@ -1022,13 +1017,13 @@ class AstraeusDashboard {
         container.innerHTML = `
             <div id="trajectory-controls" style="position: absolute; top: 10px; left: 10px; z-index: 1000; background: rgba(0,0,0,0.7); padding: 10px; border-radius: 8px;">
                 <div style="margin-bottom: 5px;">
-                    <button id="focus-earth-btn" style="margin: 2px; padding: 5px 10px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer;">🌍 Earth</button>
-                    <button id="full-view-btn" style="margin: 2px; padding: 5px 10px; background: #ffc107; color: black; border: none; border-radius: 4px; cursor: pointer;">🔭 Full View</button>
+                    <button id="focus-earth-btn" style="margin: 2px; padding: 5px 10px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer;"><i class="fas fa-earth-americas"></i> Earth</button>
+                    <button id="full-view-btn" style="margin: 2px; padding: 5px 10px; background: #ffc107; color: black; border: none; border-radius: 4px; cursor: pointer;"><i class="fas fa-magnifying-glass"></i> Full View</button>
                 </div>
                 <div>
-                    <button id="prev-satellite-btn" style="margin: 2px; padding: 5px 10px; background: #6c757d; color: white; border: none; border-radius: 4px; cursor: pointer;">⬅ Prev</button>
-                    <button id="follow-satellite-btn" style="margin: 2px; padding: 5px 10px; background: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer;">🛰 Follow</button>
-                    <button id="next-satellite-btn" style="margin: 2px; padding: 5px 10px; background: #6c757d; color: white; border: none; border-radius: 4px; cursor: pointer;">Next ➡</button>
+                    <button id="prev-satellite-btn" style="margin: 2px; padding: 5px 10px; background: #6c757d; color: white; border: none; border-radius: 4px; cursor: pointer;"><i class="fas fa-arrow-left"></i> Prev</button>
+                    <button id="follow-satellite-btn" style="margin: 2px; padding: 5px 10px; background: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer;"><i class="fas fa-satellite"></i> Follow</button>
+                    <button id="next-satellite-btn" style="margin: 2px; padding: 5px 10px; background: #6c757d; color: white; border: none; border-radius: 4px; cursor: pointer;">Next <i class="fas fa-arrow-right"></i></button>
                 </div>
             </div>
             <canvas id="trajectory-canvas"></canvas>
@@ -1159,148 +1154,412 @@ class AstraeusDashboard {
     }
 
     addTrajectoryPathsToScene(scene, earthRadius) {
-        if (!this.trajectoryData || (!this.trajectoryData.predictions && !this.trajectoryData.satellite_trajectories)) return;
-
-        try {
-            const colors = [0xff6b6b, 0x4ecdc4, 0x45b7d1, 0x96ceb4, 0xfeca57, 0xff9ff3, 0x54a0ff, 0x00ff00, 0xffff00, 0xff00ff];
-            
-            const trajectories = this.trajectoryData.satellite_trajectories || this.trajectoryData.predictions || [];
-            this.satellites = []; // Reset satellites array
-
-            trajectories.forEach((prediction, index) => {
-                try {
-                    if (index >= 15) return; // Limit to 15 trajectories for performance
-                    
-                    const points = [];
-                    let altitude = 400; // Default altitude
-                    
-                    // Use actual model predictions if available
-                    if (prediction.trajectory && prediction.trajectory.length > 0) {
-                        console.log(`Using actual model predictions for satellite ${prediction.satellite_id || index}`);
-                        
-                        // Calculate altitude from first trajectory point if available
-                        const firstPoint = prediction.trajectory[0];
-                        if (firstPoint && firstPoint.x !== undefined && firstPoint.y !== undefined && firstPoint.z !== undefined) {
-                            const radius = Math.sqrt(firstPoint.x * firstPoint.x + firstPoint.y * firstPoint.y + firstPoint.z * firstPoint.z);
-                            altitude = Math.max(200, radius - earthRadius); // Ensure minimum altitude
-                        }
-                
-                // Convert model predictions to 3D points with realistic noise
-                prediction.trajectory.forEach((point, i) => {
-                    if (point.x !== undefined && point.y !== undefined && point.z !== undefined) {
-                        // Use actual predicted coordinates
-                        let x = parseFloat(point.x) || 0;
-                        let y = parseFloat(point.y) || 0;
-                        let z = parseFloat(point.z) || 0;
-                        
-                        // Add realistic measurement/tracking noise
-                        const noiseLevel = 2 + (i * 0.5); // Increasing uncertainty over time
-                        x += (Math.random() - 0.5) * noiseLevel;
-                        y += (Math.random() - 0.5) * noiseLevel;
-                        z += (Math.random() - 0.5) * noiseLevel;
-                        
-                        points.push(new THREE.Vector3(x, y, z));
-                    }
-                });
-                
-                // If we have enough points, extend the trajectory by connecting back to start for orbital visualization
-                if (points.length >= 3) {
-                    const startPoint = points[0].clone();
-                    const endPoint = points[points.length - 1].clone();
-                    
-                    // Create smooth orbital completion by interpolating back to start
-                    const completionSteps = 10;
-                    for (let i = 1; i <= completionSteps; i++) {
-                        const t = i / completionSteps;
-                        const interpolated = endPoint.clone().lerp(startPoint, t);
-                        
-                        // Add orbital curve and noise
-                        const orbitRadius = interpolated.length();
-                        const curveNoise = (Math.random() - 0.5) * 15;
-                        interpolated.normalize().multiplyScalar(orbitRadius + curveNoise);
-                        
-                        points.push(interpolated);
-                    }
-                }
-            } else {
-                console.log(`No trajectory data for satellite ${prediction.satellite_id || index}, using fallback`);
-                
-                // Fallback: create a simple orbital path around Earth if no predictions
-                const altitude = 400 + (index * 150);
-                const orbitRadius = earthRadius + altitude;
-                const inclination = (index * 20) * Math.PI / 180;
-                
-                for (let angle = 0; angle <= 360; angle += 10) {
-                    const rad = angle * Math.PI / 180;
-                    
-                    // Add noise to make it look realistic
-                    const noiseX = (Math.random() - 0.5) * 25;
-                    const noiseY = (Math.random() - 0.5) * 25;
-                    const noiseZ = (Math.random() - 0.5) * 25;
-                    
-                    const x = orbitRadius * Math.cos(rad) * Math.cos(inclination) + noiseX;
-                    const y = orbitRadius * Math.sin(rad) + noiseY;
-                    const z = orbitRadius * Math.cos(rad) * Math.sin(inclination) + noiseZ;
-                    
-                    points.push(new THREE.Vector3(x, y, z));
-                }
-            }
-
-            if (points.length > 1) {
-                // Create trajectory line
-                const geometry = new THREE.BufferGeometry().setFromPoints(points);
-                const material = new THREE.LineBasicMaterial({ 
-                    color: colors[index % colors.length],
-                    transparent: true,
-                    opacity: 0.7,
-                    linewidth: 2
-                });
-                
-                const line = new THREE.Line(geometry, material);
-                line.userData = { 
-                    type: 'trajectory', 
-                    satelliteId: prediction.satellite_id || index,
-                    altitude: altitude
-                };
-                scene.add(line);
-
-                // Create satellite marker
-                const satelliteGeometry = new THREE.SphereGeometry(earthRadius * 0.008, 12, 12); // Scale relative to Earth
-                const satelliteMaterial = new THREE.MeshLambertMaterial({ 
-                    color: colors[index % colors.length],
-                    emissive: colors[index % colors.length],
-                    emissiveIntensity: 0.3
-                });
-                const satellite = new THREE.Mesh(satelliteGeometry, satelliteMaterial);
-                
-                // Position satellite at start of trajectory
-                satellite.position.copy(points[0]);
-                satellite.userData = { 
-                    type: 'satellite',
-                    satelliteId: prediction.satellite_id || index,
-                    trajectoryPoints: points,
-                    currentIndex: 0,
-                    altitude: altitude,
-                    phaseOffset: Math.random() * Math.PI * 2 // Random phase for perturbations
-                };
-                scene.add(satellite);
-                this.satellites.push(satellite);
-
-                // Add satellite label
-                this.createSatelliteLabel(satellite, `SAT-${prediction.satellite_id || index}`, scene);
-            }
-            } catch (error) {
-                console.error(`Error creating trajectory for satellite ${index}:`, error);
+        // Generate 100 fake satellites and show only selected 10
+        this.allSatellites = this.generateFakeSatellites(100, earthRadius);
+        this.selectedSatelliteIndices = Array.from({length: 10}, (_, i) => i); // Show first 10 by default
+        this.satellites = []; // Reset current satellites
+        
+        // Clear existing trajectories
+        const trajectoriesToRemove = [];
+        scene.traverse((child) => {
+            if (child.userData.type === 'trajectory' || child.userData.type === 'satellite') {
+                trajectoriesToRemove.push(child);
             }
         });
+        trajectoriesToRemove.forEach(obj => scene.remove(obj));
+        
+        // Add selected satellites to scene
+        this.updateDisplayedSatellites(scene, earthRadius);
+        
+        // Create satellite selection UI
+        this.createSatelliteSelector();
+    }
 
-            console.log(`Added ${this.satellites.length} satellites with complete orbital trajectories`);
-        } catch (error) {
-            console.error('Error adding trajectory paths to scene:', error);
+    generateFakeSatellites(count, earthRadius) {
+        const allSats = [];
+        const colors = [0xff6b6b, 0x4ecdc4, 0x45b7d1, 0x96ceb4, 0xfeca57, 0xff9ff3, 0x54a0ff, 0x00ff00, 0xffff00, 0xff00ff];
+        
+        for (let i = 0; i < count; i++) {
+            // Create realistic orbital parameters with much more variety
+            const altitudeVariations = [
+                400, 450, 500, 600, 700, 800, 1000, 1200, 1500, 2000,  // LEO
+                5000, 8000, 12000, 15000, 20000,                        // MEO  
+                35786, 36000, 37000                                     // GEO
+            ];
+            const altitude = altitudeVariations[i % altitudeVariations.length] + (Math.random() - 0.5) * 200;
+            const orbitRadius = earthRadius + altitude;
+            
+            // Realistic inclinations for different orbit types
+            let inclination;
+            if (altitude < 2000) {
+                // LEO satellites - varied inclinations
+                inclination = (Math.random() * 180 - 90) * Math.PI / 180; // -90 to +90 degrees
+            } else if (altitude < 25000) {
+                // MEO satellites - moderate inclinations  
+                inclination = (Math.random() * 120 - 60) * Math.PI / 180; // -60 to +60 degrees
+            } else {
+                // GEO satellites - near equatorial
+                inclination = (Math.random() * 20 - 10) * Math.PI / 180; // -10 to +10 degrees
+            }
+            
+            // Random orbital eccentricity and orientation
+            const eccentricity = Math.random() * 0.3; // 0-0.3 eccentricity
+            const argumentOfPerigee = Math.random() * 2 * Math.PI;
+            const longitudeOfAscendingNode = Math.random() * 2 * Math.PI;
+            
+            const points = [];
+            
+            // Create elliptical orbit with realistic variations
+            for (let angle = 0; angle <= 360; angle += 2) {
+                const rad = angle * Math.PI / 180;
+                
+                // Elliptical orbit calculation
+                const trueAnomaly = rad;
+                const r = orbitRadius * (1 - eccentricity * eccentricity) / (1 + eccentricity * Math.cos(trueAnomaly));
+                
+                // Position in orbital plane
+                const xOrb = r * Math.cos(trueAnomaly);
+                const yOrb = r * Math.sin(trueAnomaly);
+                const zOrb = 0;
+                
+                // Rotate to 3D space using orbital elements
+                const cosLAN = Math.cos(longitudeOfAscendingNode);
+                const sinLAN = Math.sin(longitudeOfAscendingNode);
+                const cosInc = Math.cos(inclination);
+                const sinInc = Math.sin(inclination);
+                const cosAOP = Math.cos(argumentOfPerigee);
+                const sinAOP = Math.sin(argumentOfPerigee);
+                
+                // Transformation matrix multiplication
+                const x = (cosLAN * cosAOP - sinLAN * sinAOP * cosInc) * xOrb + 
+                         (-cosLAN * sinAOP - sinLAN * cosAOP * cosInc) * yOrb;
+                const y = (sinLAN * cosAOP + cosLAN * sinAOP * cosInc) * xOrb + 
+                         (-sinLAN * sinAOP + cosLAN * cosAOP * cosInc) * yOrb;
+                const z = (sinInc * sinAOP) * xOrb + (sinInc * cosAOP) * yOrb;
+                
+                points.push(new THREE.Vector3(x, y, z));
+            }
+            
+            allSats.push({
+                id: i,
+                points: points,
+                altitude: altitude,
+                inclination: inclination * 180 / Math.PI,
+                color: colors[i % colors.length],
+                name: `SAT-${String(i + 1).padStart(3, '0')}`
+            });
+        }
+        
+        return allSats;
+    }
+
+    updateDisplayedSatellites(scene, earthRadius) {
+        // Clear existing displayed satellites
+        this.satellites = [];
+        
+        this.selectedSatelliteIndices.forEach((satIndex, displayIndex) => {
+            if (satIndex >= this.allSatellites.length) return;
+            
+            const satData = this.allSatellites[satIndex];
+            
+            // Create trajectory line
+            const geometry = new THREE.BufferGeometry().setFromPoints(satData.points);
+            const material = new THREE.LineBasicMaterial({ 
+                color: satData.color,
+                transparent: true,
+                opacity: 0.8,
+                linewidth: 2
+            });
+            
+            const line = new THREE.Line(geometry, material);
+            line.userData = { 
+                type: 'trajectory', 
+                satelliteId: satData.id,
+                altitude: satData.altitude
+            };
+            scene.add(line);
+
+            // Create satellite marker
+            const satelliteGeometry = new THREE.SphereGeometry(earthRadius * 0.01, 16, 16);
+            const satelliteMaterial = new THREE.MeshLambertMaterial({ 
+                color: satData.color,
+                emissive: satData.color,
+                emissiveIntensity: 0.2
+            });
+            
+            const satellite = new THREE.Mesh(satelliteGeometry, satelliteMaterial);
+            satellite.position.copy(satData.points[0]); // Start at first point
+            satellite.userData = {
+                type: 'satellite',
+                trajectoryPoints: satData.points,
+                currentIndex: Math.random() * satData.points.length, // Random starting position
+                speed: 0.5 + Math.random() * 0.3, // Vary orbital speed: 0.5-0.8
+                altitude: satData.altitude,
+                name: satData.name
+            };
+            scene.add(satellite);
+            this.satellites.push(satellite);
+        });
+    }
+
+    createSatelliteSelector() {
+        // Remove existing selector if present
+        const existingSelector = document.getElementById('satellite-selector');
+        if (existingSelector) existingSelector.remove();
+        
+        const container = document.getElementById('trajectory-container');
+        if (!container) return;
+        
+        const selector = document.createElement('div');
+        selector.id = 'satellite-selector';
+        selector.style.cssText = `
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: rgba(13, 17, 23, 0.9);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 15px;
+            max-width: 300px;
+            max-height: 400px;
+            overflow-y: auto;
+            z-index: 100;
+            font-size: 12px;
+        `;
+        
+        selector.innerHTML = `
+            <h4 style="margin: 0 0 10px 0; color: var(--text-primary);">Select Satellites (${this.selectedSatelliteIndices.length}/10)</h4>
+            <div style="margin-bottom: 10px;">
+                <button onclick="window.dashboard.selectRandomSatellites()" style="background: var(--primary-color); color: white; border: none; padding: 5px 10px; border-radius: 4px; margin-right: 5px; cursor: pointer;">Random 10</button>
+                <button onclick="window.dashboard.selectLEOSatellites()" style="background: var(--success-color); color: white; border: none; padding: 5px 10px; border-radius: 4px; margin-right: 5px; cursor: pointer;">LEO Only</button>
+                <button onclick="window.dashboard.selectGEOSatellites()" style="background: var(--warning-color); color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer;">GEO Only</button>
+            </div>
+            <div id="satellite-list" style="max-height: 250px; overflow-y: auto;"></div>
+        `;
+        
+        container.appendChild(selector);
+        this.updateSatelliteList();
+    }
+
+    updateSatelliteList() {
+        const listContainer = document.getElementById('satellite-list');
+        if (!listContainer || !this.allSatellites) return;
+        
+        listContainer.innerHTML = '';
+        
+        this.allSatellites.forEach((sat, index) => {
+            const isSelected = this.selectedSatelliteIndices.includes(index);
+            const item = document.createElement('div');
+            item.style.cssText = `
+                display: flex;
+                align-items: center;
+                padding: 5px;
+                margin: 2px 0;
+                background: ${isSelected ? 'rgba(0, 123, 255, 0.2)' : 'rgba(255, 255, 255, 0.05)'};
+                border-radius: 4px;
+                cursor: pointer;
+                border: 1px solid ${isSelected ? 'var(--primary-color)' : 'transparent'};
+            `;
+            
+            const altitudeType = sat.altitude < 2000 ? 'LEO' : sat.altitude < 25000 ? 'MEO' : 'GEO';
+            
+            item.innerHTML = `
+                <input type="checkbox" ${isSelected ? 'checked' : ''} 
+                       onchange="window.dashboard.toggleSatellite(${index}, this.checked)"
+                       style="margin-right: 8px;">
+                <div style="flex: 1; color: var(--text-primary);">
+                    <div style="font-weight: bold;">${sat.name}</div>
+                    <div style="font-size: 10px; color: var(--text-secondary);">${altitudeType} - ${Math.round(sat.altitude)}km - ${Math.round(sat.inclination)}°</div>
+                </div>
+                <div style="width: 12px; height: 12px; background-color: #${sat.color.toString(16).padStart(6, '0')}; border-radius: 50%; margin-left: 5px;"></div>
+            `;
+            
+            listContainer.appendChild(item);
+        });
+    }
+
+    createSatelliteSelector() {
+        const container = document.getElementById('trajectory-container');
+        if (!container) return;
+        
+        // Remove existing selector
+        const existingSelector = document.getElementById('satellite-selector');
+        if (existingSelector) existingSelector.remove();
+        
+        const selectorDiv = document.createElement('div');
+        selectorDiv.id = 'satellite-selector';
+        selectorDiv.style.cssText = `
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: rgba(13, 17, 23, 0.9);
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+            max-width: 300px;
+            max-height: 400px;
+            overflow-y: auto;
+            z-index: 1000;
+        `;
+        
+        selectorDiv.innerHTML = `
+            <h4 style="margin: 0 0 10px 0; color: var(--text-primary);">Select 10 Satellites</h4>
+            <div style="margin-bottom: 10px;">
+                <button onclick="window.dashboard.selectRandomSatellites()" style="background: var(--primary-color); color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; margin-right: 5px;">Random 10</button>
+                <button onclick="window.dashboard.selectLowOrbitSatellites()" style="background: var(--success-color); color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer;">Low Orbit</button>
+            </div>
+            <div id="satellite-checkboxes" style="max-height: 250px; overflow-y: auto;"></div>
+        `;
+        
+        container.appendChild(selectorDiv);
+        
+        // Generate checkboxes for all 100 satellites
+        const checkboxContainer = document.getElementById('satellite-checkboxes');
+        for (let i = 0; i < this.allSatellites.length; i++) {
+            const satData = this.allSatellites[i];
+            const isSelected = this.selectedSatelliteIndices.includes(i);
+            
+            const checkboxDiv = document.createElement('div');
+            checkboxDiv.style.cssText = 'margin: 3px 0; display: flex; align-items: center;';
+            checkboxDiv.innerHTML = `
+                <input type="checkbox" id="sat-${i}" ${isSelected ? 'checked' : ''} 
+                       onchange="window.dashboard.toggleSatellite(${i})"
+                       style="margin-right: 8px;">
+                <label for="sat-${i}" style="color: var(--text-primary); font-size: 12px; cursor: pointer;">
+                    ${satData.name} (${Math.round(satData.altitude)}km, ${Math.round(satData.inclination)}°)
+                </label>
+            `;
+            checkboxContainer.appendChild(checkboxDiv);
         }
     }
 
-    createSatelliteLabel(satellite, text, scene) {
+    toggleSatellite(satelliteIndex, isChecked) {
+        if (isChecked && this.selectedSatelliteIndices.length < 10) {
+            if (!this.selectedSatelliteIndices.includes(satelliteIndex)) {
+                this.selectedSatelliteIndices.push(satelliteIndex);
+            }
+        } else if (!isChecked) {
+            const index = this.selectedSatelliteIndices.indexOf(satelliteIndex);
+            if (index > -1) {
+                this.selectedSatelliteIndices.splice(index, 1);
+            }
+        }
+        
+        // Update visualization
+        if (this.trajectoryScene) {
+            this.updateDisplayedSatellites(this.trajectoryScene.scene, 6371);
+        }
+        this.updateSatelliteList();
+    }
+
+    selectRandomSatellites() {
+        this.selectedSatelliteIndices = [];
+        const indices = Array.from({length: this.allSatellites.length}, (_, i) => i);
+        for (let i = 0; i < 10; i++) {
+            const randomIndex = Math.floor(Math.random() * indices.length);
+            this.selectedSatelliteIndices.push(indices.splice(randomIndex, 1)[0]);
+        }
+        
+        if (this.trajectoryScene) {
+            this.updateDisplayedSatellites(this.trajectoryScene.scene, 6371);
+        }
+        this.updateSatelliteList();
+    }
+
+    selectLEOSatellites() {
+        this.selectedSatelliteIndices = [];
+        const leoSats = this.allSatellites
+            .map((sat, index) => ({...sat, index}))
+            .filter(sat => sat.altitude < 2000)
+            .slice(0, 10);
+        
+        this.selectedSatelliteIndices = leoSats.map(sat => sat.index);
+        
+        if (this.trajectoryScene) {
+            this.updateDisplayedSatellites(this.trajectoryScene.scene, 6371);
+        }
+        this.updateSatelliteList();
+    }
+
+    selectGEOSatellites() {
+        this.selectedSatelliteIndices = [];
+        const geoSats = this.allSatellites
+            .map((sat, index) => ({...sat, index}))
+            .filter(sat => sat.altitude > 25000)
+            .slice(0, 10);
+        
+        this.selectedSatelliteIndices = geoSats.map(sat => sat.index);
+        
+        if (this.trajectoryScene) {
+            this.updateDisplayedSatellites(this.trajectoryScene.scene, 6371);
+        }
+        this.updateSatelliteList();
+    }
+
+    toggleSatellite(satelliteIndex, isSelected) {
+        const index = this.selectedSatelliteIndices.indexOf(satelliteIndex);
+        
+        if (index > -1) {
+            // Remove satellite
+            this.selectedSatelliteIndices.splice(index, 1);
+        } else {
+            // Add satellite (max 10)
+            if (this.selectedSatelliteIndices.length < 10) {
+                this.selectedSatelliteIndices.push(satelliteIndex);
+            } else {
+                // Replace oldest selection
+                this.selectedSatelliteIndices.shift();
+                this.selectedSatelliteIndices.push(satelliteIndex);
+                // Update checkbox for replaced satellite
+                const oldCheckbox = document.getElementById(`sat-${this.selectedSatelliteIndices[0]}`);
+                if (oldCheckbox) oldCheckbox.checked = false;
+            }
+        }
+        
+        // Update display
+        if (this.trajectoryScene) {
+            this.updateDisplayedSatellites(this.trajectoryScene.scene, 6371);
+        }
+    }
+
+    selectRandomSatellites() {
+        this.selectedSatelliteIndices = [];
+        while (this.selectedSatelliteIndices.length < 10) {
+            const randomIndex = Math.floor(Math.random() * this.allSatellites.length);
+            if (!this.selectedSatelliteIndices.includes(randomIndex)) {
+                this.selectedSatelliteIndices.push(randomIndex);
+            }
+        }
+        
+        // Update checkboxes
+        for (let i = 0; i < this.allSatellites.length; i++) {
+            const checkbox = document.getElementById(`sat-${i}`);
+            if (checkbox) checkbox.checked = this.selectedSatelliteIndices.includes(i);
+        }
+        
+        // Update display
+        if (this.trajectoryScene) {
+            this.updateDisplayedSatellites(this.trajectoryScene.scene, 6371);
+        }
+    }
+
+    selectLowOrbitSatellites() {
+        // Select 10 lowest orbit satellites
+        this.selectedSatelliteIndices = Array.from({length: 10}, (_, i) => i);
+        
+        // Update checkboxes
+        for (let i = 0; i < this.allSatellites.length; i++) {
+            const checkbox = document.getElementById(`sat-${i}`);
+            if (checkbox) checkbox.checked = i < 10;
+        }
+        
+        // Update display
+        if (this.trajectoryScene) {
+            this.updateDisplayedSatellites(this.trajectoryScene.scene, 6371);
+        }
+    }
+
+    createSatelliteLabel(scene, satellite, text) {
         // Create text sprite for satellite label
         const canvas = document.createElement('canvas');
         const context = canvas.getContext('2d');
@@ -1335,69 +1594,14 @@ class AstraeusDashboard {
         this.satellites.forEach(satellite => {
             const userData = satellite.userData;
             if (userData.trajectoryPoints && userData.trajectoryPoints.length > 0) {
-                // Move satellite along trajectory with realistic speed variations
-                const speedVariation = 0.2 + Math.random() * 0.3; // 0.2-0.5 speed
-                userData.currentIndex = (userData.currentIndex + speedVariation) % userData.trajectoryPoints.length;
+                // Simple, smooth movement along trajectory
+                userData.currentIndex = (userData.currentIndex + 0.2) % userData.trajectoryPoints.length;
                 const currentPoint = userData.trajectoryPoints[Math.floor(userData.currentIndex)];
                 const nextPoint = userData.trajectoryPoints[Math.floor(userData.currentIndex + 1) % userData.trajectoryPoints.length];
                 
-                // Interpolate between points for smooth movement
+                // Smooth interpolation between points
                 const t = userData.currentIndex - Math.floor(userData.currentIndex);
                 satellite.position.lerpVectors(currentPoint, nextPoint, t);
-                
-                // Add realistic orbital perturbations and tracking errors
-                const time = Date.now() * 0.001;
-                const altitude = userData.altitude || 400;
-                
-                // Atmospheric drag effects (stronger at lower altitudes)
-                const dragFactor = Math.max(0, (600 - altitude) / 600);
-                const dragNoise = dragFactor * 15; // Up to 15km variation for low orbits
-                
-                // Solar radiation pressure (varies with solar activity)
-                const solarPressure = Math.sin(time * 0.1 + userData.phaseOffset) * 8;
-                
-                // Earth's gravitational anomalies (J2, J3 perturbations)
-                const j2Effect = Math.sin(time * 2 + userData.phaseOffset * 2) * 12;
-                const j3Effect = Math.cos(time * 0.7 + userData.phaseOffset * 3) * 6;
-                
-                // Tracking station measurement errors
-                const trackingNoiseX = (Math.random() - 0.5) * 20 * (1 + dragFactor);
-                const trackingNoiseY = (Math.random() - 0.5) * 20 * (1 + dragFactor);
-                const trackingNoiseZ = (Math.random() - 0.5) * 20 * (1 + dragFactor);
-                
-                // Station-keeping maneuvers (occasional large corrections)
-                if (Math.random() < 0.001) { // Very rare maneuvers
-                    userData.maneuverX = (Math.random() - 0.5) * 100;
-                    userData.maneuverY = (Math.random() - 0.5) * 100;
-                    userData.maneuverZ = (Math.random() - 0.5) * 100;
-                    userData.maneuverDecay = 0.98; // Decay factor
-                }
-                
-                // Apply maneuver decay
-                if (userData.maneuverX) {
-                    userData.maneuverX *= userData.maneuverDecay || 0.98;
-                    userData.maneuverY *= userData.maneuverDecay || 0.98;
-                    userData.maneuverZ *= userData.maneuverDecay || 0.98;
-                    
-                    // Clear small maneuvers
-                    if (Math.abs(userData.maneuverX) < 0.1) {
-                        userData.maneuverX = userData.maneuverY = userData.maneuverZ = 0;
-                    }
-                }
-                
-                // Combine all perturbations
-                const totalPerturbX = solarPressure + j2Effect + trackingNoiseX + (userData.maneuverX || 0);
-                const totalPerturbY = j3Effect + trackingNoiseY + (userData.maneuverY || 0);
-                const totalPerturbZ = solarPressure * 0.7 + j2Effect * 0.5 + trackingNoiseZ + (userData.maneuverZ || 0);
-                
-                satellite.position.x += totalPerturbX;
-                satellite.position.y += totalPerturbY;
-                satellite.position.z += totalPerturbZ;
-                
-                // Add slight attitude variations (satellite tumbling/rotation)
-                satellite.rotation.x += (Math.random() - 0.5) * 0.02;
-                satellite.rotation.y += (Math.random() - 0.5) * 0.02;
-                satellite.rotation.z += (Math.random() - 0.5) * 0.02;
                 
                 // Update label position if it exists
                 const scene = this.trajectoryScene.scene;
@@ -1924,7 +2128,7 @@ class AstraeusDashboard {
             trajectoriesToRemove.forEach(traj => this.scene.remove(traj));
         }
         
-        this.showAlert('🧹 Trajectories cleared', 'info');
+        this.showAlert('<i class="fas fa-broom"></i> Trajectories cleared', 'info');
     }
 
     async loadCacheStatus() {
@@ -1974,7 +2178,7 @@ class AstraeusDashboard {
         
         container.innerHTML = `
             <div style="margin-bottom: 1rem;">
-                <h4 style="margin-bottom: 0.5rem;">📊 Cache Sources</h4>
+                <h4 style="margin-bottom: 0.5rem;"><i class="fas fa-chart-bar"></i> Cache Sources</h4>
                 <div style="background: rgba(255, 255, 255, 0.05); border-radius: 8px; overflow: hidden;">
                     ${sourcesHtml}
                 </div>
@@ -2010,53 +2214,53 @@ class AstraeusDashboard {
 
     async forceCacheUpdate() {
         try {
-            this.showAlert('🔄 Force updating cache...', 'info');
+            this.showAlert('<i class="fas fa-rotate"></i> Force updating cache...', 'info');
             
             const response = await fetch(`${this.apiBaseUrl}/cache/force-update`, { method: 'POST' });
             const data = await response.json();
             
             if (data.success) {
-                this.showAlert('✅ Cache updated successfully', 'success');
+                this.showAlert('<i class="fas fa-check-circle"></i> Cache updated successfully', 'success');
                 // Reload cache status
                 setTimeout(() => this.loadCacheStatus(), 1000);
             } else {
-                this.showAlert('❌ Cache update failed: ' + data.error, 'danger');
+                this.showAlert('<i class="fas fa-circle-xmark"></i> Cache update failed: ' + data.error, 'danger');
             }
         } catch (error) {
             console.error('Force cache update error:', error);
-            this.showAlert('❌ Error updating cache', 'danger');
+            this.showAlert('<i class="fas fa-circle-xmark"></i> Error updating cache', 'danger');
         }
     }
 
     async loadHighRiskSatellites() {
         try {
-            this.showAlert('🔍 Analyzing high-risk satellites...', 'info');
+            this.showAlert('<i class="fas fa-magnifying-glass"></i> Analyzing high-risk satellites...', 'info');
             
             const response = await fetch(`${this.apiBaseUrl}/satellites/high-risk`);
             const data = await response.json();
             
             if (data.success) {
                 this.displayHighRiskSatellitesList(data.satellites, data.threat_summary);
-                this.showAlert('✅ High-risk analysis completed', 'success');
+                this.showAlert('<i class="fas fa-check-circle"></i> High-risk analysis completed', 'success');
             } else {
-                this.showAlert('❌ Failed to load high-risk satellites: ' + data.error, 'danger');
+                this.showAlert('<i class="fas fa-circle-xmark"></i> Failed to load high-risk satellites: ' + data.error, 'danger');
             }
             
         } catch (error) {
             console.error('Error loading high-risk satellites:', error);
-            this.showAlert('❌ Error loading high-risk satellites', 'danger');
+            this.showAlert('<i class="fas fa-circle-xmark"></i> Error loading high-risk satellites', 'danger');
         }
     }
 
     viewCacheFiles() {
-        this.showAlert('📁 Cache files are stored in the tle_cache directory', 'info');
+        this.showAlert('<i class="fas fa-folder-open"></i> Cache files are stored in the tle_cache directory', 'info');
     }
 
     showAlert(message, type) {
         const alertContainer = document.getElementById('alert-container');
         
         alertContainer.className = `alert alert-${type}`;
-        alertContainer.textContent = message;
+        alertContainer.innerHTML = message;
         alertContainer.classList.add('show');
         
         setTimeout(() => {
@@ -2101,8 +2305,6 @@ document.addEventListener('DOMContentLoaded', () => {
         window.dashboard.loadSatelliteList();
     }, 2000);
     
-    console.log('🚀 Astraeus Dashboard initialized');
-    console.log('Real-time orbital collision prediction system active');
 });
 
 // Global functions for HTML template

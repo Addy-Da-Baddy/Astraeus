@@ -5,6 +5,7 @@ w<!DOCTYPE html>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Astraeus - Mission Control Access</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
     <style>
         * {
             margin: 0;
@@ -13,23 +14,23 @@ w<!DOCTYPE html>
         }
 
         :root {
-            /* Terminal-style color scheme */
-            --terminal-bg: #0a0a0a;
-            --terminal-secondary: #1a1a1a;
+            /* Terminal-style color scheme - black theme */
+            --terminal-bg: #000000;
+            --terminal-secondary: #0d0d0d;
             --terminal-border: #333333;
-            --terminal-green: #00ff00;
-            --terminal-amber: #ffb000;
-            --terminal-red: #ff4444;
-            --terminal-blue: #4d9fff;
-            --terminal-cyan: #00ffff;
-            --terminal-magenta: #ff00ff;
+            --terminal-green: #00ff7f;
+            --terminal-amber: #eab308;
+            --terminal-red: #ff5555;
+            --terminal-blue: #8ab4f8;
+            --terminal-cyan: #98cad1;
+            --terminal-magenta: #ff77ff;
             --terminal-white: #ffffff;
-            --terminal-gray: #808080;
-            --terminal-dark-gray: #404040;
+            --terminal-gray: #d0d0d0;
+            --terminal-dark-gray: #1a1a1a;
         }
 
         body {
-            font-family: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', 'SF Mono', 'Monaco', 'Inconsolata', 'Roboto Mono', 'Consolas', monospace;
+            font-family: 'JetBrains Mono', monospace;
             background: var(--terminal-bg);
             color: var(--terminal-white);
             min-height: 100vh;
@@ -59,26 +60,14 @@ w<!DOCTYPE html>
         .grid-line.horizontal {
             width: 100%;
             height: 1px;
-            animation: scan-horizontal 8s linear infinite;
         }
 
         .grid-line.vertical {
             height: 100%;
             width: 1px;
-            animation: scan-vertical 6s linear infinite;
         }
 
-        @keyframes scan-horizontal {
-            0% { transform: translateY(-100vh); opacity: 0; }
-            10%, 90% { opacity: 0.3; }
-            100% { transform: translateY(100vh); opacity: 0; }
-        }
-
-        @keyframes scan-vertical {
-            0% { transform: translateX(-100vw); opacity: 0; }
-            10%, 90% { opacity: 0.3; }
-            100% { transform: translateX(100vw); opacity: 0; }
-        }
+        
 
         /* Login container */
         .login-container {
@@ -90,7 +79,7 @@ w<!DOCTYPE html>
         }
 
         .login-card {
-            background: rgba(26, 26, 26, 0.95);
+            background: #0f0f0f;
             border: 1px solid var(--terminal-border);
             border-radius: 12px;
             padding: 3rem;
@@ -107,13 +96,7 @@ w<!DOCTYPE html>
             left: 0;
             right: 0;
             height: 1px;
-            background: linear-gradient(90deg, transparent, var(--terminal-green), transparent);
-            animation: scan-top 3s ease-in-out infinite;
-        }
-
-        @keyframes scan-top {
-            0%, 100% { opacity: 0; }
-            50% { opacity: 1; }
+            background: var(--terminal-border);
         }
 
         /* Header */
@@ -125,9 +108,9 @@ w<!DOCTYPE html>
         .logo {
             font-size: 2rem;
             font-weight: 700;
-            color: var(--terminal-green);
+            color: var(--terminal-white);
             margin-bottom: 0.5rem;
-            text-shadow: 0 0 10px rgba(0, 255, 0, 0.5);
+            text-shadow: 0 0 10px rgba(255, 255, 255, 0.25);
         }
 
         .subtitle {
@@ -169,21 +152,20 @@ w<!DOCTYPE html>
 
         .form-input {
             width: 100%;
-            background: rgba(0, 0, 0, 0.5);
+            background: #0d0d0d;
             border: 1px solid var(--terminal-border);
             border-radius: 6px;
             padding: 0.75rem 1rem;
             color: var(--terminal-white);
             font-family: inherit;
             font-size: 1rem;
-            transition: all 0.3s ease;
         }
 
         .form-input:focus {
             outline: none;
             border-color: var(--terminal-green);
-            box-shadow: 0 0 0 2px rgba(0, 255, 0, 0.2);
-            background: rgba(0, 0, 0, 0.7);
+            box-shadow: 0 0 0 2px rgba(0, 255, 127, 0.15);
+            background: #111111;
         }
 
         .form-input::placeholder {
@@ -193,20 +175,16 @@ w<!DOCTYPE html>
         .input-icon {
             position: absolute;
             right: 0.75rem;
-            top: 2.25rem;
+            top: 65%;
+            transform: translateY(-50%);
             color: var(--terminal-gray);
             cursor: pointer;
-            transition: color 0.3s ease;
-        }
-
-        .input-icon:hover {
-            color: var(--terminal-green);
         }
 
         /* Login button */
         .login-btn {
             width: 100%;
-            background: linear-gradient(45deg, var(--terminal-green), #00aa00);
+            background: var(--terminal-white);
             color: var(--terminal-bg);
             border: none;
             border-radius: 8px;
@@ -215,7 +193,6 @@ w<!DOCTYPE html>
             font-weight: 600;
             font-family: inherit;
             cursor: pointer;
-            transition: all 0.3s ease;
             text-transform: uppercase;
             letter-spacing: 1px;
             position: relative;
@@ -223,9 +200,7 @@ w<!DOCTYPE html>
         }
 
         .login-btn:hover {
-            background: linear-gradient(45deg, #00aa00, var(--terminal-green));
-            transform: translateY(-2px);
-            box-shadow: 0 10px 30px rgba(0, 255, 0, 0.3);
+            background: #e5e5e5;
         }
 
         .login-btn:active {
@@ -254,7 +229,7 @@ w<!DOCTYPE html>
             border: 2px solid var(--terminal-bg);
             border-top: 2px solid transparent;
             border-radius: 50%;
-            animation: spin 1s linear infinite;
+            animation: spin 4s linear infinite;
         }
 
         @keyframes spin {
@@ -268,14 +243,6 @@ w<!DOCTYPE html>
             border-radius: 6px;
             margin-bottom: 1rem;
             font-size: 0.9rem;
-            opacity: 0;
-            transform: translateY(-10px);
-            transition: all 0.3s ease;
-        }
-
-        .alert.show {
-            opacity: 1;
-            transform: translateY(0);
         }
 
         .alert-error {
@@ -300,7 +267,7 @@ w<!DOCTYPE html>
         .demo-info {
             margin-top: 1rem;
             padding: 1rem;
-            background: rgba(77, 153, 255, 0.1);
+            background: #0f0f0f;
             border: 1px solid var(--terminal-blue);
             border-radius: 6px;
             color: var(--terminal-blue);

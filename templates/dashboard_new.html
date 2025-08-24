@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Astraeus - Orbital Collision Prediction System</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/chart.js/3.9.1/chart.min.js"></script>
@@ -14,28 +15,32 @@
             padding: 0;
             box-sizing: border-box;
         }
+        
+        h2 {
+            padding-bottom: 1rem;
+        }
 
         :root {
-            --primary-color: #007bff;
-            --secondary-color: #6c757d;
-            --success-color: #28a745;
-            --danger-color: #dc3545;
-            --warning-color: #ffc107;
-            --info-color: #17a2b8;
-            --dark-color: #343a40;
-            --light-color: #f8f9fa;
-            --bg-primary: #0d1117;
-            --bg-secondary: #161b22;
-            --bg-tertiary: #21262d;
-            --text-primary: #f0f6fc;
-            --text-secondary: #8b949e;
-            --border-color: #30363d;
-            --accent-color: #7c3aed;
+            --primary-color: #2077d4;
+            --secondary-color: #9aa0a6;
+            --danger-color: #d81d1d;
+            --success-color: #30a75c;
+            --warning-color: #ffea00;
+            --info-color: #38bdf8;
+            --dark-color: #000000;
+            --light-color: #111111;
+            --bg-primary: #000000;
+            --bg-secondary: #0d0d0d;
+            --bg-tertiary: #121212;
+            --text-primary: #ffffff;
+            --text-secondary: #d0d0d0;
+            --border-color: #333333;
+            --accent-color: #8ab4f8;
         }
 
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #0c0c0c 0%, #1a1a2e 50%, #16213e 100%);
+            font-family: 'JetBrains Mono', monospace;
+            background: #000000;
             color: var(--text-primary);
             overflow-x: hidden;
             min-height: 100vh;
@@ -43,7 +48,7 @@
 
         /* Header */
         .header {
-            background: rgba(13, 17, 23, 0.95);
+            background: #0d0d0d;
             backdrop-filter: blur(20px);
             border-bottom: 1px solid var(--border-color);
             padding: 1rem 2rem;
@@ -64,9 +69,7 @@
         }
 
         .logo h1 {
-            background: linear-gradient(45deg, #007bff, #7c3aed);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
+            color: var(--text-primary);
             font-size: 1.8rem;
             font-weight: 700;
         }
@@ -87,13 +90,6 @@
             height: 8px;
             background: var(--success-color);
             border-radius: 50%;
-            animation: pulse 2s infinite;
-        }
-
-        @keyframes pulse {
-            0% { opacity: 1; }
-            50% { opacity: 0.5; }
-            100% { opacity: 1; }
         }
 
         /* Main Layout */
@@ -106,7 +102,7 @@
         /* Sidebar Navigation */
         .sidebar {
             width: 280px;
-            background: rgba(22, 27, 34, 0.95);
+            background: #0d0d0d;
             backdrop-filter: blur(20px);
             border-right: 1px solid var(--border-color);
             padding: 2rem 1rem;
@@ -134,7 +130,6 @@
             margin-bottom: 0.5rem;
             border-radius: 8px;
             cursor: pointer;
-            transition: all 0.3s ease;
             color: var(--text-secondary);
             text-decoration: none;
         }
@@ -142,13 +137,11 @@
         .nav-item:hover {
             background: rgba(255, 255, 255, 0.05);
             color: var(--text-primary);
-            transform: translateX(5px);
         }
 
         .nav-item.active {
-            background: linear-gradient(45deg, rgba(0, 123, 255, 0.2), rgba(124, 58, 237, 0.2));
+            background: rgba(0, 123, 255, 0.1);
             color: var(--primary-color);
-            border: 1px solid rgba(0, 123, 255, 0.3);
         }
 
         .nav-item i {
@@ -161,36 +154,27 @@
             flex: 1;
             padding: 2rem;
             overflow-y: auto;
+            background: #000000;
         }
 
         .tab-content {
             display: none;
-            animation: fadeIn 0.3s ease;
         }
 
         .tab-content.active {
             display: block;
         }
 
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
+        
 
         /* Cards */
         .card {
-            background: rgba(33, 38, 45, 0.8);
+            background: #0d0d0d;
             backdrop-filter: blur(20px);
             border: 1px solid var(--border-color);
             border-radius: 12px;
             padding: 1.5rem;
             margin-bottom: 1.5rem;
-            transition: transform 0.3s ease;
-        }
-
-        .card:hover {
-            transform: translateY(-2px);
-            border-color: rgba(0, 123, 255, 0.5);
         }
 
         .card-header {
@@ -219,40 +203,39 @@
             font-size: 0.9rem;
             font-weight: 500;
             cursor: pointer;
-            transition: all 0.3s ease;
             text-decoration: none;
             white-space: nowrap;
         }
 
         .btn-primary {
-            background: linear-gradient(45deg, var(--primary-color), #0056b3);
+            background: var(--primary-color);
             color: white;
         }
 
         .btn-primary:hover {
-            background: linear-gradient(45deg, #0056b3, var(--primary-color));
-            transform: translateY(-2px);
-            box-shadow: 0 4px 20px rgba(0, 123, 255, 0.4);
+            opacity: 0.9;
         }
 
         .btn-success {
-            background: linear-gradient(45deg, var(--success-color), #1e7e34);
+            background: var(--success-color);
             color: white;
         }
 
         .btn-success:hover {
-            background: linear-gradient(45deg, #1e7e34, var(--success-color));
-            transform: translateY(-2px);
-            box-shadow: 0 4px 20px rgba(40, 167, 69, 0.4);
+            opacity: 0.9;
         }
 
         .btn-warning {
-            background: linear-gradient(45deg, var(--warning-color), #e0a800);
+            background: var(--warning-color);
             color: #212529;
         }
 
+        .btn-warning:hover {
+            opacity: 0.9;
+        }
+
         .btn-danger {
-            background: linear-gradient(45deg, var(--danger-color), #c82333);
+            background: var(--danger-color);
             color: white;
         }
 
@@ -265,6 +248,19 @@
         .btn-outline:hover {
             background: var(--primary-color);
             color: white;
+        }
+
+        .quick-actions {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+
+        .quick-actions .btn {
+            width: 100%;
+            justify-content: center;
+            font-family: inherit;
+            font-weight: 600;
         }
 
         /* Grid Layouts */
@@ -292,7 +288,7 @@
             border-radius: 12px;
             overflow: hidden;
             border: 1px solid var(--border-color);
-            background: #000;
+            background: #000000;
         }
 
         .viz-controls {
@@ -320,18 +316,16 @@
         }
 
         .stat-card {
-            background: rgba(33, 38, 45, 0.8);
+            background: #0d0d0d;
             backdrop-filter: blur(20px);
             border: 1px solid var(--border-color);
             border-radius: 12px;
             padding: 1.5rem;
             text-align: center;
-            transition: all 0.3s ease;
-        }
-
-        .stat-card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            height: 100%;
         }
 
         .stat-value {
@@ -360,19 +354,17 @@
         }
 
         .satellite-item {
-            background: rgba(255, 255, 255, 0.05);
+            background: #0f0f0f;
             border: 1px solid var(--border-color);
             border-radius: 8px;
             padding: 1rem;
             margin-bottom: 0.75rem;
             cursor: pointer;
-            transition: all 0.3s ease;
         }
 
         .satellite-item:hover {
             background: rgba(255, 255, 255, 0.1);
             border-color: var(--primary-color);
-            transform: translateX(5px);
         }
 
         .satellite-header {
@@ -504,7 +496,6 @@
             cursor: pointer;
             padding: 0.5rem;
             border-radius: 4px;
-            transition: all 0.3s ease;
         }
 
         .close-btn:hover {
@@ -521,15 +512,17 @@
             border-radius: 8px;
             font-weight: 500;
             z-index: 3000;
-            opacity: 0;
-            transform: translateX(100%);
-            transition: all 0.3s ease;
             max-width: 400px;
+            opacity: 0;
+            transform: translateY(-10px);
+            pointer-events: none;
+            transition: opacity 0.4s ease, transform 0.4s ease;
         }
 
         .alert.show {
             opacity: 1;
-            transform: translateX(0);
+            transform: translateY(0);
+            pointer-events: auto;
         }
 
         .alert-success {
@@ -574,7 +567,7 @@
             border: 3px solid var(--border-color);
             border-radius: 50%;
             border-top-color: var(--primary-color);
-            animation: spin 1s linear infinite;
+            animation: spin 4s linear infinite;
         }
 
         @keyframes spin {
@@ -750,7 +743,7 @@
                         <div class="card-header">
                             <h3 class="card-title">Quick Actions</h3>
                         </div>
-                        <div style="display: flex; flex-direction: column; gap: 1rem;">
+                        <div class="quick-actions">
                             <button class="btn btn-primary" onclick="runPrediction()">
                                 <i class="fas fa-play"></i>
                                 Run Detection
@@ -770,7 +763,7 @@
 
             <!-- 3D Visualization Tab -->
             <div id="visualization-tab" class="tab-content">
-                <h2>🌍 3D Orbital Visualization</h2>
+                <h2><i class="fas fa-globe"></i> 3D Orbital Visualization</h2>
                 <div class="grid grid-4">
                     <!-- Main 3D Viewer -->
                     <div class="card" style="grid-column: span 3;">
@@ -802,7 +795,7 @@
                     <!-- Visualization Controls -->
                     <div class="card">
                         <div class="card-header">
-                            <h3 class="card-title">🎛️ Controls</h3>
+                            <h3 class="card-title"><i class="fas fa-sliders-h"></i> Controls</h3>
                         </div>
                         <div style="padding: 1rem;">
                             <div style="margin-bottom: 1rem;">
@@ -826,7 +819,7 @@
                     <!-- Live Statistics -->
                     <div class="card" style="grid-column: span 4;">
                         <div class="card-header">
-                            <h3 class="card-title">📈 Live Statistics</h3>
+                            <h3 class="card-title"><i class="fas fa-chart-line"></i> Live Statistics</h3>
                         </div>
                         <div id="live-statistics" style="padding: 1rem;">
                             <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1rem;">
@@ -951,7 +944,7 @@
 
             <!-- Trajectories Tab -->
             <div id="trajectories-tab" class="tab-content">
-                <h2>🚀 Orbital Trajectories</h2>
+                <h2><i class="fas fa-rocket"></i> Orbital Trajectories</h2>
                 <div class="grid grid-2">
                     <!-- Trajectory Visualization -->
                     <div class="card" style="grid-column: span 2;">
@@ -1000,7 +993,7 @@
                     <!-- Trajectory Statistics -->
                     <div class="card">
                         <div class="card-header">
-                            <h3 class="card-title">📊 Trajectory Statistics</h3>
+                            <h3 class="card-title"><i class="fas fa-chart-bar"></i> Trajectory Statistics</h3>
                         </div>
                         <div id="trajectory-stats">
                             <div style="text-align: center; padding: 2rem; color: var(--text-secondary);">
@@ -1012,7 +1005,7 @@
                     <!-- Risk Analysis -->
                     <div class="card">
                         <div class="card-header">
-                            <h3 class="card-title">⚠️ Collision Risk Analysis</h3>
+                            <h3 class="card-title"><i class="fas fa-exclamation-triangle"></i> Collision Risk Analysis</h3>
                         </div>
                         <div id="collision-risk-analysis">
                             <div style="text-align: center; padding: 2rem; color: var(--text-secondary);">
@@ -1025,12 +1018,12 @@
 
             <!-- Risk Alerts Tab -->
             <div id="alerts-tab" class="tab-content">
-                <h2>🚨 Risk Alerts & Warnings</h2>
+                <h2><i class="fas fa-bell"></i> Risk Alerts & Warnings</h2>
                 
                 <!-- High-Risk Satellites List -->
                 <div class="card">
                     <div class="card-header">
-                        <h3 class="card-title">⚠️ High-Risk Satellites</h3>
+                        <h3 class="card-title"><i class="fas fa-exclamation-triangle"></i> High-Risk Satellites</h3>
                         <button class="btn btn-sm btn-secondary" onclick="loadHighRiskSatellites()">
                             <i class="fas fa-sync"></i> Refresh
                         </button>
@@ -1046,7 +1039,7 @@
                 <div class="grid grid-2">
                     <div class="card">
                         <div class="card-header">
-                            <h3 class="card-title">📊 Active Alerts</h3>
+                            <h3 class="card-title"><i class="fas fa-bullhorn"></i> Active Alerts</h3>
                             <span class="risk-badge risk-critical">LIVE</span>
                         </div>
                         <div id="active-alerts">
@@ -1058,7 +1051,7 @@
 
                     <div class="card">
                         <div class="card-header">
-                            <h3 class="card-title">📈 Risk Summary</h3>
+                            <h3 class="card-title"><i class="fas fa-chart-line"></i> Risk Summary</h3>
                         </div>
                         <div id="risk-summary">
                             <div style="text-align: center; padding: 2rem;">
@@ -1072,7 +1065,7 @@
                 <!-- Collision Warnings -->
                 <div class="card">
                     <div class="card-header">
-                        <h3 class="card-title">💥 Collision Warnings</h3>
+                        <h3 class="card-title"><i class="fas fa-radiation"></i> Collision Warnings</h3>
                     </div>
                     <div id="collision-warnings">
                         <div style="text-align: center; padding: 2rem; color: var(--text-secondary);">
@@ -1089,7 +1082,7 @@
                 <!-- Data Cache Status -->
                 <div class="card">
                     <div class="card-header">
-                        <h3 class="card-title">🗂️ Data Cache Status</h3>
+                        <h3 class="card-title"><i class="fas fa-folder-open"></i> Data Cache Status</h3>
                         <button class="btn btn-sm btn-secondary" onclick="loadCacheStatus()">
                             <i class="fas fa-sync"></i> Refresh
                         </button>
@@ -1105,7 +1098,7 @@
                 <!-- Configuration -->
                 <div class="card">
                     <div class="card-header">
-                        <h3 class="card-title">⚙️ Configuration</h3>
+                        <h3 class="card-title"><i class="fas fa-cog"></i> Configuration</h3>
                     </div>
                     <div class="form-group">
                         <label class="form-label">Update Interval (seconds)</label>
@@ -1135,7 +1128,7 @@
                 <!-- Admin Actions -->
                 <div class="card">
                     <div class="card-header">
-                        <h3 class="card-title">🔧 Admin Actions</h3>
+                        <h3 class="card-title"><i class="fas fa-tools"></i> Admin Actions</h3>
                     </div>
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
                         <button class="btn btn-warning" onclick="forceCacheUpdate()">

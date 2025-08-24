@@ -309,7 +309,7 @@ class NovaGenApp {
                 <div style="font-weight: 600;">Debris #${index + 1}</div>
                 <div style="font-size: 0.9rem; color: var(--text-secondary);">
                     Alt: ${item.altitude?.toFixed(0)} km<br>
-                    Inc: ${item.inclination?.toFixed(1)}°
+                    Inc: ${item.inclination?.toFixed(1)}
                 </div>
             </div>
         `).join('');
@@ -324,7 +324,7 @@ class NovaGenApp {
                 <div style="font-weight: 600;">Satellite #${index + 1}</div>
                 <div style="font-size: 0.9rem; color: var(--text-secondary);">
                     Alt: ${item.altitude?.toFixed(0)} km<br>
-                    Inc: ${item.inclination?.toFixed(1)}°
+                    Inc: ${item.inclination?.toFixed(1)}
                 </div>
             </div>
         `).join('');
@@ -380,7 +380,7 @@ function manualUpdate() {
 
 function toggleAlert() {
     if (window.novaGen) {
-        window.novaGen.showAlert('🚨 TEST ALERT: High collision risk simulation!', 'danger');
+        window.novaGen.showAlert('TEST ALERT: High collision risk simulation!', 'danger');
     }
 }
 
@@ -412,7 +412,4 @@ function updateSpeed() {
 // Initialize the application when DOM is loaded
 document.addEventListener('DOMContentLoaded', () => {
     window.novaGen = new NovaGenApp();
-    
-    console.log('🚀 NovaGen Web Demo Initialized');
-    console.log('Real-time orbital collision risk prediction system');
 });

@@ -4,22 +4,22 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>NovaGen - Orbital Collision Risk Prediction</title>
-    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Exo+2:wght@300;400;600&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/dat-gui/0.7.9/dat.gui.min.js"></script>
     <style>
         :root {
-            --primary-color: #00d4ff;
-            --secondary-color: #ff6b35;
-            --accent-color: #7b68ee;
-            --danger-color: #ff4757;
-            --success-color: #2ed573;
-            --warning-color: #ffa502;
-            --dark-bg: #0a0a0a;
-            --card-bg: rgba(20, 20, 30, 0.9);
+            --primary-color: #4da3ff;
+            --secondary-color: #9aa0a6;
+            --accent-color: #8ab4f8;
+            --danger-color: #ff5555;
+            --success-color: #0eb94c;
+            --warning-color: #ffc800;
+            --dark-bg: #000000;
+            --card-bg: #0d0d0d;
             --text-primary: #ffffff;
-            --text-secondary: #b8b8b8;
+            --text-secondary: #d0d0d0;
         }
 
         * {
@@ -29,8 +29,8 @@
         }
 
         body {
-            font-family: 'Exo 2', sans-serif;
-            background: linear-gradient(135deg, #0a0a0a 0%, #1a1a2e 50%, #16213e 100%);
+            font-family: 'JetBrains Mono', monospace;
+            background: #000000;
             color: var(--text-primary);
             overflow: hidden;
             height: 100vh;
@@ -51,12 +51,6 @@
             position: absolute;
             background: white;
             border-radius: 50%;
-            animation: twinkle 2s infinite alternate;
-        }
-
-        @keyframes twinkle {
-            0% { opacity: 0.3; }
-            100% { opacity: 1; }
         }
 
         /* Header */
@@ -70,15 +64,11 @@
         }
 
         .header h1 {
-            font-family: 'Orbitron', monospace;
+            font-family: 'JetBrains Mono', monospace;
             font-size: 2.5rem;
-            font-weight: 900;
-            background: linear-gradient(45deg, var(--primary-color), var(--accent-color));
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
+            font-weight: 700;
+            color: var(--text-primary);
             display: inline-block;
-            text-shadow: 0 0 20px rgba(0, 212, 255, 0.5);
         }
 
         .subtitle {
@@ -105,16 +95,16 @@
             border-radius: 15px;
             padding: 1.5rem;
             backdrop-filter: blur(15px);
-            border: 1px solid rgba(0, 212, 255, 0.3);
+            border: 1px solid #333333;
             overflow-y: auto;
         }
 
         .status-card {
-            background: rgba(0, 212, 255, 0.1);
+            background: #0f0f0f;
             border-radius: 10px;
             padding: 1rem;
             margin-bottom: 1rem;
-            border: 1px solid var(--primary-color);
+            border: 1px solid #333333;
         }
 
         .status-indicator {
@@ -129,12 +119,6 @@
             height: 10px;
             border-radius: 50%;
             background: var(--success-color);
-            animation: pulse 2s infinite;
-        }
-
-        @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.5; }
         }
 
         .metric {
@@ -162,7 +146,7 @@
         .visualization {
             background: var(--card-bg);
             border-radius: 15px;
-            border: 1px solid rgba(123, 104, 238, 0.3);
+            border: 1px solid #333333;
             position: relative;
             overflow: hidden;
         }
@@ -176,10 +160,10 @@
             position: absolute;
             top: 20px;
             right: 20px;
-            background: rgba(0, 0, 0, 0.7);
+            background: #0f0f0f;
             border-radius: 10px;
             padding: 1rem;
-            border: 1px solid var(--primary-color);
+            border: 1px solid #333333;
         }
 
         /* Data Panel */
@@ -188,7 +172,7 @@
             border-radius: 15px;
             padding: 1.5rem;
             backdrop-filter: blur(15px);
-            border: 1px solid rgba(255, 107, 53, 0.3);
+            border: 1px solid #333333;
             overflow-y: auto;
         }
 
@@ -198,7 +182,7 @@
         }
 
         .debris-item {
-            background: rgba(255, 71, 87, 0.1);
+            background: #0f0f0f;
             border-radius: 8px;
             padding: 0.8rem;
             margin-bottom: 0.5rem;
@@ -206,7 +190,7 @@
         }
 
         .satellite-item {
-            background: rgba(0, 212, 255, 0.1);
+            background: #0f0f0f;
             border-radius: 8px;
             padding: 0.8rem;
             margin-bottom: 0.5rem;
@@ -215,26 +199,25 @@
 
         /* Buttons */
         .btn {
-            background: linear-gradient(45deg, var(--primary-color), var(--accent-color));
+            background: var(--primary-color);
             border: none;
             padding: 0.8rem 1.5rem;
-            border-radius: 25px;
-            color: white;
+            border-radius: 6px;
+            color: #000;
             font-weight: 600;
             cursor: pointer;
-            font-family: 'Exo 2', sans-serif;
-            transition: all 0.3s ease;
+            font-family: 'JetBrains Mono', monospace;
             width: 100%;
             margin: 0.5rem 0;
         }
 
         .btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 10px 20px rgba(0, 212, 255, 0.3);
+            background: #00b4d8;
         }
 
         .btn-danger {
-            background: linear-gradient(45deg, var(--danger-color), #ff3838);
+            background: var(--danger-color);
+            color: #000;
         }
 
         /* Loading animation */
@@ -251,7 +234,7 @@
             border: 3px solid rgba(0, 212, 255, 0.3);
             border-top: 3px solid var(--primary-color);
             border-radius: 50%;
-            animation: spin 1s linear infinite;
+            animation: spin 3s linear infinite;
         }
 
         @keyframes spin {
@@ -269,12 +252,6 @@
             padding: 1rem 1.5rem;
             border-radius: 10px;
             z-index: 1000;
-            animation: slideIn 0.5s ease;
-        }
-
-        @keyframes slideIn {
-            from { transform: translateX(100%); }
-            to { transform: translateX(0); }
         }
 
         /* Responsive */

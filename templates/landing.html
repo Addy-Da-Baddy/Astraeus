@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Astraeus - Orbital Collision Prediction System</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
     <style>
         * {
             margin: 0;
@@ -13,23 +14,23 @@
         }
 
         :root {
-            /* Terminal-style color scheme */
-            --terminal-bg: #0a0a0a;
-            --terminal-secondary: #1a1a1a;
+            /* Terminal-style color scheme - black theme */
+            --terminal-bg: #000000;
+            --terminal-secondary: #0d0d0d;
             --terminal-border: #333333;
-            --terminal-green: #00ff00;
-            --terminal-amber: #ffb000;
-            --terminal-red: #ff4444;
-            --terminal-blue: #4d9fff;
-            --terminal-cyan: #00ffff;
-            --terminal-magenta: #ff00ff;
+            --terminal-green: #00ff7f;
+            --terminal-amber: #eab308;
+            --terminal-red: #ff5555;
+            --terminal-blue: #8ab4f8;
+            --terminal-cyan: #4dd0e1;
+            --terminal-magenta: #ff77ff;
             --terminal-white: #ffffff;
-            --terminal-gray: #808080;
-            --terminal-dark-gray: #404040;
+            --terminal-gray: #d0d0d0;
+            --terminal-dark-gray: #1a1a1a;
         }
 
         body {
-            font-family: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', 'SF Mono', 'Monaco', 'Inconsolata', 'Roboto Mono', 'Consolas', monospace;
+            font-family: 'JetBrains Mono', monospace;
             background: var(--terminal-bg);
             color: var(--terminal-white);
             overflow-x: hidden;
@@ -54,12 +55,6 @@
             height: 2px;
             background: var(--terminal-green);
             border-radius: 50%;
-            animation: twinkle 3s infinite;
-        }
-
-        @keyframes twinkle {
-            0%, 100% { opacity: 0.3; }
-            50% { opacity: 1; }
         }
 
         /* Main container */
@@ -77,25 +72,15 @@
             max-width: 1200px;
             width: 100%;
             text-align: center;
-        }
-
-        /* Hero section */
-        .hero {
-            margin-bottom: 4rem;
+            display: grid;
+            grid-template-rows: auto 1fr auto;
+            row-gap: 1.5rem;
         }
 
         .logo {
             font-size: 4rem;
             font-weight: 700;
-            color: var(--terminal-green);
-            margin-bottom: 1rem;
-            text-shadow: 0 0 20px rgba(0, 255, 0, 0.5);
-            animation: glow 2s ease-in-out infinite alternate;
-        }
-
-        @keyframes glow {
-            from { text-shadow: 0 0 20px rgba(0, 255, 0, 0.5); }
-            to { text-shadow: 0 0 30px rgba(0, 255, 0, 0.8), 0 0 40px rgba(0, 255, 0, 0.3); }
+            color: var(--terminal-white);
         }
 
         .tagline {
@@ -108,7 +93,7 @@
         .subtitle {
             font-size: 1rem;
             color: var(--terminal-gray);
-            margin-bottom: 3rem;
+            margin-bottom: 0rem;
             max-width: 600px;
             margin-left: auto;
             margin-right: auto;
@@ -119,23 +104,16 @@
         .features {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 2rem;
-            margin-bottom: 4rem;
+            gap: 1.5rem;
+            margin-bottom: 0;
         }
 
         .feature-card {
-            background: rgba(255, 255, 255, 0.05);
+            background: #0f0f0f;
             border: 1px solid var(--terminal-border);
             border-radius: 12px;
-            padding: 2rem;
-            transition: all 0.3s ease;
+            padding: 1rem;
             backdrop-filter: blur(10px);
-        }
-
-        .feature-card:hover {
-            border-color: var(--terminal-green);
-            box-shadow: 0 0 20px rgba(0, 255, 0, 0.2);
-            transform: translateY(-5px);
         }
 
         .feature-icon {
@@ -144,7 +122,7 @@
             display: block;
         }
 
-        .feature-card:nth-child(1) .feature-icon { color: var(--terminal-green); }
+        .feature-card:nth-child(1) .feature-icon { color: var(--terminal-white); }
         .feature-card:nth-child(2) .feature-icon { color: var(--terminal-cyan); }
         .feature-card:nth-child(3) .feature-icon { color: var(--terminal-amber); }
 
@@ -163,10 +141,10 @@
 
         /* CTA section */
         .cta {
-            background: rgba(255, 255, 255, 0.05);
+            background: #0f0f0f;
             border: 1px solid var(--terminal-border);
             border-radius: 12px;
-            padding: 3rem;
+            padding: 1.5rem;
             backdrop-filter: blur(10px);
             max-width: 500px;
             margin: 0 auto;
@@ -175,7 +153,7 @@
         .cta h3 {
             font-size: 1.5rem;
             margin-bottom: 1rem;
-            color: var(--terminal-green);
+            color: var(--terminal-white);
         }
 
         .cta p {
@@ -189,7 +167,7 @@
             align-items: center;
             gap: 0.5rem;
             padding: 1rem 2rem;
-            background: linear-gradient(45deg, var(--terminal-green), #00aa00);
+            background: var(--terminal-white);
             color: var(--terminal-bg);
             border: none;
             border-radius: 8px;
@@ -197,14 +175,11 @@
             font-weight: 600;
             font-family: inherit;
             cursor: pointer;
-            transition: all 0.3s ease;
             text-decoration: none;
         }
 
         .btn:hover {
-            background: linear-gradient(45deg, #00aa00, var(--terminal-green));
-            transform: translateY(-2px);
-            box-shadow: 0 10px 30px rgba(0, 255, 0, 0.3);
+            background: #e5e5e5;
         }
 
         /* Stats ticker */
@@ -217,20 +192,14 @@
             border-top: 1px solid var(--terminal-border);
             padding: 1rem;
             font-size: 0.8rem;
-            color: var(--terminal-green);
+            color: var(--terminal-white);
             text-align: center;
             backdrop-filter: blur(10px);
             z-index: 20;
         }
 
         .ticker-content {
-            animation: scroll-left 30s linear infinite;
             white-space: nowrap;
-        }
-
-        @keyframes scroll-left {
-            0% { transform: translateX(100%); }
-            100% { transform: translateX(-100%); }
         }
 
         /* Responsive design */
@@ -256,15 +225,16 @@
             }
         }
 
-        /* Terminal cursor effect */
-        .cursor {
-            animation: blink 1s infinite;
+        @media (max-height: 800px) {
+            .logo { font-size: 3rem; }
+            .hero { margin-bottom: 1rem; }
+            .features { gap: 1rem; }
+            .feature-card { padding: 1.25rem; }
+            .cta { padding: 2rem; }
         }
 
-        @keyframes blink {
-            0%, 50% { opacity: 1; }
-            51%, 100% { opacity: 0; }
-        }
+        /* Terminal cursor effect */
+        .cursor { opacity: 1; }
     </style>
 </head>
 <body>
@@ -324,7 +294,7 @@
     <!-- Stats Ticker -->
     <div class="stats-ticker">
         <div class="ticker-content">
-            🛰️ ACTIVE SATELLITES: 12,484 • 🗑️ DEBRIS OBJECTS: 37 • ⚠️ HIGH-RISK CONJUNCTIONS: 24 • 📊 COLLISION PROBABILITY: 0.19% • 🎯 PREDICTION ACCURACY: 94.2% • 🔄 LAST UPDATE: REAL-TIME
+            ACTIVE SATELLITES: 12,484 • DEBRIS OBJECTS: 37 • HIGH-RISK CONJUNCTIONS: 24 • COLLISION PROBABILITY: 0.19% • PREDICTION ACCURACY: 94.2% • LAST UPDATE: REAL-TIME
         </div>
     </div>
 
@@ -339,7 +309,6 @@
                 star.className = 'star';
                 star.style.left = Math.random() * 100 + '%';
                 star.style.top = Math.random() * 100 + '%';
-                star.style.animationDelay = Math.random() * 3 + 's';
                 
                 // Random colors
                 const colors = ['var(--terminal-green)', 'var(--terminal-cyan)', 'var(--terminal-white)'];
@@ -361,12 +330,12 @@
                 if (data.success) {
                     const ticker = document.querySelector('.ticker-content');
                     ticker.innerHTML = `
-                        🛰️ ACTIVE SATELLITES: ${data.total_objects || 0} • 
-                        🗑️ DEBRIS OBJECTS: ${data.debris_count || 0} • 
-                        ⚠️ HIGH-RISK CONJUNCTIONS: ${data.high_risk_count || 0} • 
-                        📊 COLLISION PROBABILITY: ${(data.collision_probability || 0).toFixed(3)}% • 
-                        🎯 PREDICTION ACCURACY: 94.2% • 
-                        🔄 LAST UPDATE: ${new Date().toLocaleTimeString()}
+                        ACTIVE SATELLITES: ${data.total_objects || 0} • 
+                        DEBRIS OBJECTS: ${data.debris_count || 0} • 
+                        HIGH-RISK CONJUNCTIONS: ${data.high_risk_count || 0} • 
+                        COLLISION PROBABILITY: ${(data.collision_probability || 0).toFixed(3)}% • 
+                        PREDICTION ACCURACY: 94.2% • 
+                        LAST UPDATE: ${new Date().toLocaleTimeString()}
                     `;
                 }
             } catch (error) {
