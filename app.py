@@ -7,6 +7,13 @@ import pandas as pd
 from datetime import datetime
 import threading
 import time
+import matplotlib
+matplotlib.use('Agg')  # Use non-interactive backend
+import matplotlib.pyplot as plt
+import matplotlib.patches as patches
+from matplotlib.patches import Circle
+import io
+import base64
 from predict_collision_risk import CollisionRiskPredictor
 from data_collection import get_latest_features, get_cache_status
 
@@ -824,6 +831,172 @@ def api_trajectory_bulk():
             
     except Exception as e:
         print(f"❌ Bulk trajectory prediction error: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/trajectory-plot', methods=['POST'])
+def api_trajectory_plot():
+    """Generate matplotlib trajectory plot image"""
+    try:
+        if predictor is None:
+            return jsonify({'error': 'Predictor not initialized'}), 400
+            
+        # Get fresh data
+        features_df = get_latest_features("active_satellites", label=0)
+        
+        if features_df is None or len(features_df) == 0:
+            return jsonify({'error': 'No satellite data available'}), 400
+        
+        # Limit to first 10 satellites for clear visualization
+        limited_df = features_df.head(10)
+        
+        print(f"📊 Generating matplotlib trajectory plot for {len(limited_df)} satellites...")
+        
+        # Generate trajectory data
+        trajectories = []
+        for idx, row in limited_df.iterrows():
+            # Get current orbital parameters
+            altitude = float(row.get('altitude', 400))
+            inclination = float(row.get('inclination', 0)) * np.pi / 180
+            
+            # Generate trajectory points
+            trajectory_points = []
+            for i in range(20):
+                t = i * 600  # 10-minute intervals
+                orbital_period = 2 * np.pi * np.sqrt((altitude + 6371)**3 / 398600.4418)
+                angular_velocity = 2 * np.pi / orbital_period
+                angle = angular_velocity * t
+                radius = altitude + 6371
+                
+                trajectory_points.append({
+                    'x': radius * np.cos(angle) * np.cos(inclination),
+                    'y': radius * np.sin(angle) * np.sin(inclination),
+                    'z': radius * np.sin(angle) * np.cos(inclination)
+                })
+            
+            trajectories.append({
+                'satellite_id': idx,
+                'points': trajectory_points,
+                'is_debris': bool(row.get('label', 0) == 1)
+            })
+        
+        # Create matplotlib plot
+        plt.style.use('dark_background')
+        fig = plt.figure(figsize=(15, 10))
+        
+        # Create 3 subplots: XY, XZ, YZ projections
+        ax1 = plt.subplot(2, 2, 1)
+        ax2 = plt.subplot(2, 2, 2)
+        ax3 = plt.subplot(2, 2, 3)
+        ax4 = plt.subplot(2, 2, 4, projection='3d')
+        
+        # Color scheme - terminal style
+        colors = ['#00ff00', '#00ffff', '#ffff00', '#ff00ff', '#ffffff', 
+                 '#ff6b6b', '#4ecdc4', '#45b7d1', '#96ceb4', '#feca57']
+        
+        # Plot Earth in each subplot
+        earth_radius = 6371
+        
+        # XY plane
+        circle1 = Circle((0, 0), earth_radius, color='#004400', alpha=0.7)
+        ax1.add_patch(circle1)
+        ax1.set_xlim(-15000, 15000)
+        ax1.set_ylim(-15000, 15000)
+        ax1.set_xlabel('X (km)', color='#00ff00')
+        ax1.set_ylabel('Y (km)', color='#00ff00')
+        ax1.set_title('XY Projection', color='#00ffff')
+        ax1.grid(True, alpha=0.3, color='#333333')
+        
+        # XZ plane
+        circle2 = Circle((0, 0), earth_radius, color='#004400', alpha=0.7)
+        ax2.add_patch(circle2)
+        ax2.set_xlim(-15000, 15000)
+        ax2.set_ylim(-15000, 15000)
+        ax2.set_xlabel('X (km)', color='#00ff00')
+        ax2.set_ylabel('Z (km)', color='#00ff00')
+        ax2.set_title('XZ Projection', color='#00ffff')
+        ax2.grid(True, alpha=0.3, color='#333333')
+        
+        # YZ plane
+        circle3 = Circle((0, 0), earth_radius, color='#004400', alpha=0.7)
+        ax3.add_patch(circle3)
+        ax3.set_xlim(-15000, 15000)
+        ax3.set_ylim(-15000, 15000)
+        ax3.set_xlabel('Y (km)', color='#00ff00')
+        ax3.set_ylabel('Z (km)', color='#00ff00')
+        ax3.set_title('YZ Projection', color='#00ffff')
+        ax3.grid(True, alpha=0.3, color='#333333')
+        
+        # 3D plot
+        u = np.linspace(0, 2 * np.pi, 50)
+        v = np.linspace(0, np.pi, 50)
+        x_earth = earth_radius * np.outer(np.cos(u), np.sin(v))
+        y_earth = earth_radius * np.outer(np.sin(u), np.sin(v))
+        z_earth = earth_radius * np.outer(np.ones(np.size(u)), np.cos(v))
+        ax4.plot_surface(x_earth, y_earth, z_earth, alpha=0.3, color='#004400')
+        ax4.set_xlabel('X (km)', color='#00ff00')
+        ax4.set_ylabel('Y (km)', color='#00ff00')
+        ax4.set_zlabel('Z (km)', color='#00ff00')
+        ax4.set_title('3D Trajectories', color='#00ffff')
+        
+        # Plot trajectories
+        for i, traj in enumerate(trajectories):
+            color = colors[i % len(colors)]
+            x_coords = [p['x'] for p in traj['points']]
+            y_coords = [p['y'] for p in traj['points']]
+            z_coords = [p['z'] for p in traj['points']]
+            
+            # XY projection
+            ax1.plot(x_coords, y_coords, color=color, alpha=0.8, linewidth=2, 
+                    label=f"SAT-{traj['satellite_id']}")
+            ax1.scatter(x_coords[0], y_coords[0], color=color, s=50, marker='o')
+            
+            # XZ projection
+            ax2.plot(x_coords, z_coords, color=color, alpha=0.8, linewidth=2)
+            ax2.scatter(x_coords[0], z_coords[0], color=color, s=50, marker='o')
+            
+            # YZ projection
+            ax3.plot(y_coords, z_coords, color=color, alpha=0.8, linewidth=2)
+            ax3.scatter(y_coords[0], z_coords[0], color=color, s=50, marker='o')
+            
+            # 3D plot
+            ax4.plot(x_coords, y_coords, z_coords, color=color, alpha=0.8, linewidth=2)
+            ax4.scatter(x_coords[0], y_coords[0], z_coords[0], color=color, s=50, marker='o')
+        
+        # Add legend to XY plot
+        ax1.legend(loc='upper right', fontsize=8, fancybox=True, framealpha=0.8)
+        
+        # Set background color
+        fig.patch.set_facecolor('#0a0a0a')
+        for ax in [ax1, ax2, ax3]:
+            ax.set_facecolor('#0a0a0a')
+        ax4.xaxis.pane.fill = False
+        ax4.yaxis.pane.fill = False
+        ax4.zaxis.pane.fill = False
+        
+        # Overall title
+        fig.suptitle('Astraeus - Orbital Trajectory Predictions\nGenerated: ' + datetime.now().strftime('%Y-%m-%d %H:%M:%S'), 
+                    color='#00ffff', fontsize=16, y=0.95)
+        
+        plt.tight_layout()
+        
+        # Convert plot to base64 image
+        img_buffer = io.BytesIO()
+        plt.savefig(img_buffer, format='png', dpi=150, bbox_inches='tight', 
+                   facecolor='#0a0a0a', edgecolor='none')
+        img_buffer.seek(0)
+        img_base64 = base64.b64encode(img_buffer.read()).decode('utf-8')
+        plt.close()
+        
+        return jsonify({
+            'success': True,
+            'plot_image': img_base64,
+            'trajectories_count': len(trajectories),
+            'prediction_horizon': 3.3,
+            'timestamp': datetime.now().isoformat()
+        })
+        
+    except Exception as e:
+        print(f"❌ Trajectory plot generation error: {e}")
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/cache/status')

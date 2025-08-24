@@ -912,35 +912,43 @@
                                     <i class="fas fa-home"></i>
                                     Reset View
                                 </button>
-                                <button class="btn btn-primary" onclick="window.dashboard.toggleFullscreen()">
+                                <button class="btn btn-primary" onclick="toggle3DFullscreen()">
                                     <i class="fas fa-expand"></i>
                                     Fullscreen
                                 </button>
                             </div>
                         </div>
-                        <div class="viz-container" id="visualization-container" style="height: 600px;">
-                            <div class="viz-controls" style="position: absolute; top: 10px; left: 10px; z-index: 100; display: flex; gap: 0.5rem;">
+                        
+                        <!-- External Controls (Outside Canvas) -->
+                        <div style="padding: 0.5rem 1rem; background: var(--terminal-secondary); border-bottom: 1px solid var(--terminal-border); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+                            <div class="viz-controls" style="display: flex; gap: 0.5rem;">
                                 <button class="btn btn-primary" onclick="toggleSatellites()" title="Toggle Satellites">
                                     <i class="fas fa-satellite"></i>
+                                    Satellites
                                 </button>
                                 <button class="btn btn-warning" onclick="toggleDebris()" title="Toggle Debris">
                                     <i class="fas fa-trash"></i>
+                                    Debris
                                 </button>
                                 <button class="btn btn-success" onclick="toggleTrajectories()" title="Toggle Trajectories">
                                     <i class="fas fa-route"></i>
+                                    Trajectories
                                 </button>
                                 <button class="btn btn-info" onclick="window.dashboard.toggleLabels()" title="Toggle Labels">
                                     <i class="fas fa-tags"></i>
+                                    Labels
                                 </button>
                             </div>
-                            <div class="viz-legend" style="position: absolute; bottom: 10px; left: 10px; background: rgba(0,0,0,0.7); padding: 1rem; border-radius: 8px; z-index: 100;">
-                                <div style="font-size: 0.8rem; margin-bottom: 0.5rem;"><strong>Legend:</strong></div>
-                                <div style="font-size: 0.7rem; display: flex; gap: 1rem;">
-                                    <span><span style="color: #4ecdc4;">●</span> Active Satellites</span>
-                                    <span><span style="color: #ff6b6b;">●</span> Debris</span>
-                                    <span><span style="color: #45b7d1;">─</span> Trajectories</span>
-                                </div>
+                            <div class="viz-legend" style="background: rgba(0,0,0,0.7); padding: 0.5rem 1rem; border-radius: 4px; font-size: 0.8rem;">
+                                <span style="color: var(--text-secondary); margin-right: 1rem;">Legend:</span>
+                                <span style="margin-right: 1rem;"><span style="color: #4ecdc4;">●</span> Active Satellites</span>
+                                <span style="margin-right: 1rem;"><span style="color: #ff6b6b;">●</span> Debris</span>
+                                <span><span style="color: #45b7d1;">─</span> Trajectories</span>
                             </div>
+                        </div>
+                        
+                        <div class="viz-container" id="visualization-container" style="height: 600px; cursor: crosshair;">
+                            <!-- Canvas will be inserted here - no overlay controls -->
                         </div>
                     </div>
 
@@ -950,23 +958,47 @@
                             <h3 class="card-title">🎛️ Controls</h3>
                         </div>
                         <div style="padding: 1rem;">
+                            <!-- Free Movement Instructions -->
+                            <div style="margin-bottom: 1.5rem; padding: 1rem; background: var(--terminal-secondary); border-radius: 8px; border-left: 4px solid var(--terminal-cyan);">
+                                <h4 style="color: var(--terminal-cyan); margin-bottom: 0.5rem; font-size: 0.9rem;">🖱️ Navigation Controls</h4>
+                                <ul style="font-size: 0.8rem; line-height: 1.6; color: var(--text-secondary); margin: 0; padding-left: 1rem;">
+                                    <li><strong>Orbit:</strong> Left click + drag to rotate around Earth</li>
+                                    <li><strong>Pan:</strong> Right click + drag to move view</li>
+                                    <li><strong>Zoom:</strong> Mouse wheel to zoom in/out</li>
+                                    <li><strong>Fullscreen:</strong> Click Fullscreen → Click canvas → Free mouse movement</li>
+                                    <li><strong>Exit Lock:</strong> Press <kbd>ESC</kbd> to release mouse cursor</li>
+                                </ul>
+                            </div>
+                            
                             <div style="margin-bottom: 1rem;">
-                                <label style="display: block; margin-bottom: 0.5rem; font-size: 0.9rem;">Satellite Size</label>
+                                <label style="display: block; margin-bottom: 0.5rem; font-size: 0.9rem; color: var(--terminal-amber);">🛰️ Satellite Size</label>
                                 <input type="range" id="satellite-size" min="0.1" max="2" step="0.1" value="1" 
                                        onchange="window.dashboard.updateSatelliteSize(this.value)"
                                        style="width: 100%;">
+                                <div style="font-size: 0.7rem; color: var(--text-secondary); margin-top: 0.25rem;">
+                                    <span>Small</span>
+                                    <span style="float: right;">Large</span>
+                                </div>
                             </div>
                             <div style="margin-bottom: 1rem;">
-                                <label style="display: block; margin-bottom: 0.5rem; font-size: 0.9rem;">Earth Rotation</label>
+                                <label style="display: block; margin-bottom: 0.5rem; font-size: 0.9rem; color: var(--terminal-green);">🌍 Earth Rotation</label>
                                 <input type="range" id="earth-rotation" min="0" max="0.02" step="0.001" value="0.005" 
                                        onchange="window.dashboard.updateEarthRotation(this.value)"
                                        style="width: 100%;">
+                                <div style="font-size: 0.7rem; color: var(--text-secondary); margin-top: 0.25rem;">
+                                    <span>Stopped</span>
+                                    <span style="float: right;">Fast</span>
+                                </div>
                             </div>
                             <div style="margin-bottom: 1rem;">
-                                <label style="display: block; margin-bottom: 0.5rem; font-size: 0.9rem;">View Distance</label>
+                                <label style="display: block; margin-bottom: 0.5rem; font-size: 0.9rem; color: var(--terminal-blue);">📏 View Distance</label>
                                 <input type="range" id="view-distance" min="20" max="200" step="5" value="50" 
                                        onchange="window.dashboard.updateViewDistance(this.value)"
                                        style="width: 100%;">
+                                <div style="font-size: 0.7rem; color: var(--text-secondary); margin-top: 0.25rem;">
+                                    <span>Close</span>
+                                    <span style="float: right;">Far</span>
+                                </div>
                             </div>
                             <button class="btn btn-outline" onclick="window.dashboard.resetSettings()" style="width: 100%;">
                                 <i class="fas fa-undo"></i> Reset Settings
@@ -1104,113 +1136,41 @@
             <!-- Trajectories Tab -->
             <div id="trajectories-tab" class="tab-content">
                 <h2>🚀 Orbital Trajectories</h2>
-                <div class="grid grid-2">
+                <div class="grid grid-1">
                     <!-- Trajectory Visualization -->
-                    <div class="card" style="grid-column: span 2;">
+                    <div class="card">
                         <div class="card-header">
                             <h3 class="card-title">Trajectory Visualization</h3>
-                            <div style="display: flex; gap: 1rem; align-items: center; flex-wrap: wrap;">
-                                <!-- View Mode Toggle -->
-                                <div id="trajectory-view-controls" style="display: none;" class="trajectory-controls">
-                                    <label style="color: var(--text-secondary); font-size: 0.9rem;">View:</label>
-                                    <select id="trajectory-view-mode" onchange="switchTrajectoryView()" style="background: var(--terminal-secondary); color: var(--text-primary); border: 1px solid var(--terminal-border); padding: 0.25rem 0.5rem; border-radius: 4px; font-family: inherit;">
-                                        <option value="3d">3D Visualization</option>
-                                        <option value="2d">2D Projection</option>
-                                        <option value="numbers">Data Table</option>
-                                    </select>
-                                    <button class="btn btn-outline" onclick="downloadTrajectoryData()" title="Download trajectory data" style="padding: 0.5rem;">
-                                        <i class="fas fa-download"></i>
-                                    </button>
-                                </div>
-                                
-                                <!-- Action Buttons -->
-                                <div style="display: flex; gap: 0.5rem;">
-                                    <button class="btn btn-success" onclick="runTrajectoryPrediction()">
-                                        <i class="fas fa-rocket"></i>
-                                        Generate New
-                                    </button>
-                                    <button class="btn btn-outline" onclick="clearTrajectories()">
-                                        <i class="fas fa-eraser"></i>
-                                        Clear All
-                                    </button>
-                                    <button class="btn btn-primary" onclick="window.dashboard.showTrajectoryAnalysis()">
-                                        <i class="fas fa-chart-line"></i>
-                                        Analysis
-                                    </button>
-                                </div>
+                            <div style="display: flex; gap: 1rem; align-items: center;">
+                                <button class="btn btn-success" onclick="generateTrajectoryPlot()">
+                                    <i class="fas fa-rocket"></i>
+                                    Generate Trajectory Plot
+                                </button>
+                                <button class="btn btn-outline" onclick="downloadTrajectoryPlot()" id="download-plot-btn" style="display: none;">
+                                    <i class="fas fa-download"></i>
+                                    Download Plot
+                                </button>
                             </div>
                         </div>
                         
-                        <!-- Trajectory View Container -->
-                        <div id="trajectory-view-container" style="position: relative; height: 500px;">
-                            <!-- Default Message -->
-                            <div id="trajectory-default-message" style="display: flex; align-items: center; justify-content: center; height: 100%; color: var(--text-secondary); flex-direction: column; text-align: center;">
+                        <!-- Plot Container -->
+                        <div id="trajectory-plot-container" style="padding: 2rem; text-align: center; background: var(--terminal-secondary); border-radius: 8px; margin: 1rem;">
+                            <div id="trajectory-plot-placeholder" style="color: var(--text-secondary);">
                                 <i class="fas fa-satellite-dish" style="font-size: 3rem; margin-bottom: 1rem; opacity: 0.5;"></i>
                                 <h3>Orbital Trajectory Visualization</h3>
-                                <p>Click "Generate New" to predict and visualize satellite trajectories</p>
+                                <p>Click "Generate Trajectory Plot" to create matplotlib-based trajectory visualizations</p>
                             </div>
                             
-                            <!-- 3D View -->
-                            <div id="trajectory-3d-view" style="display: none; width: 100%; height: 100%; position: absolute; top: 0; left: 0;">
-                                <canvas id="trajectory-3d-canvas" style="width: 100%; height: 100%; border-radius: 8px;"></canvas>
+                            <div id="trajectory-plot-loading" style="display: none;">
+                                <div class="loading" style="margin: 2rem auto;"></div>
+                                <p>Generating trajectory plot with matplotlib...</p>
                             </div>
                             
-                            <!-- 2D View -->
-                            <div id="trajectory-2d-view" style="display: none; width: 100%; height: 100%; position: absolute; top: 0; left: 0; background: var(--terminal-secondary); border-radius: 8px; padding: 1rem;">
-                                <canvas id="trajectory-2d-canvas" style="width: calc(100% - 2rem); height: calc(100% - 2rem); border-radius: 4px; background: var(--terminal-bg);"></canvas>
-                            </div>
-                            
-                            <!-- Numbers/Data Table View -->
-                            <div id="trajectory-numbers-view" style="display: none; width: 100%; height: 100%; position: absolute; top: 0; left: 0; overflow-y: auto; background: var(--terminal-secondary); border-radius: 8px; padding: 1rem;">
-                                <table id="trajectory-data-table" style="width: 100%; font-family: 'JetBrains Mono', monospace; font-size: 0.85rem; color: var(--text-primary);">
-                                    <thead style="background: var(--terminal-border); color: var(--terminal-green);">
-                                        <tr>
-                                            <th style="padding: 0.5rem; border: 1px solid var(--terminal-border);">Object ID</th>
-                                            <th style="padding: 0.5rem; border: 1px solid var(--terminal-border);">Time (UTC)</th>
-                                            <th style="padding: 0.5rem; border: 1px solid var(--terminal-border);">X (km)</th>
-                                            <th style="padding: 0.5rem; border: 1px solid var(--terminal-border);">Y (km)</th>
-                                            <th style="padding: 0.5rem; border: 1px solid var(--terminal-border);">Z (km)</th>
-                                            <th style="padding: 0.5rem; border: 1px solid var(--terminal-border);">Velocity (km/s)</th>
-                                            <th style="padding: 0.5rem; border: 1px solid var(--terminal-border);">Altitude (km)</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody id="trajectory-data-tbody">
-                                        <!-- Data will be populated here -->
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                        
-                        <!-- Legacy container (hidden) -->
-                        <div class="viz-container" id="trajectory-container" style="height: 500px; display: none;">
-                            <div style="display: flex; align-items: center; justify-content: center; height: 100%; color: var(--text-secondary); flex-direction: column; text-align: center;">
-                                <i class="fas fa-satellite-dish" style="font-size: 3rem; margin-bottom: 1rem; opacity: 0.5;"></i>
-                                <h3>Orbital Trajectory Visualization</h3>
-                                <p>Click "Generate New" to predict and visualize satellite trajectories in 3D</p>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Trajectory Statistics -->
-                    <div class="card">
-                        <div class="card-header">
-                            <h3 class="card-title">📊 Trajectory Statistics</h3>
-                        </div>
-                        <div id="trajectory-stats">
-                            <div style="text-align: center; padding: 2rem; color: var(--text-secondary);">
-                                Generate trajectories to view statistics
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Risk Analysis -->
-                    <div class="card">
-                        <div class="card-header">
-                            <h3 class="card-title">⚠️ Collision Risk Analysis</h3>
-                        </div>
-                        <div id="collision-risk-analysis">
-                            <div style="text-align: center; padding: 2rem; color: var(--text-secondary);">
-                                Generate trajectories to analyze collision risks
+                            <div id="trajectory-plot-content" style="display: none;">
+                                <img id="trajectory-plot-image" style="max-width: 100%; height: auto; border-radius: 8px; border: 2px solid var(--terminal-border);" />
+                                <div id="trajectory-plot-info" style="margin-top: 1rem; padding: 1rem; background: var(--terminal-bg); border-radius: 4px; text-align: left;">
+                                    <!-- Plot info will be populated here -->
+                                </div>
                             </div>
                         </div>
                     </div>

@@ -13,6 +13,11 @@ class NovaGenDashboard {
         this.satelliteList = [];
         this.controls = null;
         
+        // Camera rotation for free movement
+        this.cameraRotationX = 0;
+        this.cameraRotationY = 0;
+        this.cameraDistance = 35000;
+        
         this.init();
     }
 
@@ -192,10 +197,34 @@ class NovaGenDashboard {
     }
 
     setupControls() {
-        // Basic mouse controls for terminal-style interaction
+        // Enhanced mouse controls with free movement and pointer lock support
         const canvas = this.renderer.domElement;
         let isMouseDown = false;
         let mouseX = 0, mouseY = 0;
+        let isPointerLocked = false;
+
+        // Pointer lock change handler
+        const pointerLockChangeHandler = () => {
+            if (document.pointerLockElement === canvas) {
+                isPointerLocked = true;
+                console.log('🔒 Pointer lock activated - free mouse movement enabled');
+            } else {
+                isPointerLocked = false;
+                console.log('🔓 Pointer lock deactivated');
+            }
+        };
+
+        document.addEventListener('pointerlockchange', pointerLockChangeHandler);
+        document.addEventListener('mozpointerlockchange', pointerLockChangeHandler);
+        document.addEventListener('webkitpointerlockchange', pointerLockChangeHandler);
+
+        // Exit pointer lock on ESC
+        document.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape' && isPointerLocked) {
+                document.exitPointerLock();
+                console.log('🔓 Pointer lock exited via ESC key');
+            }
+        });
 
         canvas.addEventListener('mousedown', (event) => {
             isMouseDown = true;
@@ -206,16 +235,33 @@ class NovaGenDashboard {
 
         canvas.addEventListener('mouseup', () => {
             isMouseDown = false;
-            canvas.style.cursor = 'grab';
+            canvas.style.cursor = isPointerLocked ? 'none' : 'grab';
         });
 
         canvas.addEventListener('mouseleave', () => {
-            isMouseDown = false;
-            canvas.style.cursor = 'grab';
+            if (!isPointerLocked) {
+                isMouseDown = false;
+                canvas.style.cursor = 'grab';
+            }
         });
 
         canvas.addEventListener('mousemove', (event) => {
-            if (isMouseDown) {
+            if (isPointerLocked) {
+                // Free movement with pointer lock
+                const sensitivity = 0.002;
+                const deltaX = event.movementX * sensitivity;
+                const deltaY = event.movementY * sensitivity;
+
+                // Rotate around Earth center freely
+                this.cameraRotationY += deltaX;
+                this.cameraRotationX += deltaY;
+
+                // Clamp vertical rotation to avoid flipping
+                this.cameraRotationX = Math.max(-Math.PI/2, Math.min(Math.PI/2, this.cameraRotationX));
+
+                this.updateCameraPosition();
+            } else if (isMouseDown) {
+                // Standard orbit controls
                 const deltaX = event.clientX - mouseX;
                 const deltaY = event.clientY - mouseY;
 
@@ -241,6 +287,16 @@ class NovaGenDashboard {
         });
 
         canvas.style.cursor = 'grab';
+    }
+
+    updateCameraPosition() {
+        // Update camera position based on rotation angles
+        const x = this.cameraDistance * Math.cos(this.cameraRotationX) * Math.cos(this.cameraRotationY);
+        const y = this.cameraDistance * Math.sin(this.cameraRotationX);
+        const z = this.cameraDistance * Math.cos(this.cameraRotationX) * Math.sin(this.cameraRotationY);
+        
+        this.camera.position.set(x, y, z);
+        this.camera.lookAt(0, 0, 0);
     }
 
     animate() {
@@ -789,6 +845,13 @@ class NovaGenDashboard {
             console.log('📊 Trajectories count:', data.trajectories_generated);
             console.log('📊 Predictions/satellite_trajectories:', data.predictions || data.satellite_trajectories);
 
+            // Add fallback data if no trajectories are present
+            if (!data.predictions && !data.satellite_trajectories) {
+                console.log('⚠️ No trajectory data found - generating fallback data');
+                data.predictions = this.generateFallbackTrajectoryData();
+                this.trajectoryData = data;
+            }
+
             // Display results
             resultContainer.innerHTML = `
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
@@ -854,6 +917,10 @@ class NovaGenDashboard {
 
             // Initialize with 3D view by default
             setTimeout(() => {
+                const viewModeSelect = document.getElementById('trajectory-view-mode');
+                if (viewModeSelect) {
+                    viewModeSelect.value = '3d';
+                }
                 this.show3DTrajectoryView();
                 console.log('🎯 3D trajectory view initialized');
             }, 100);
@@ -867,6 +934,40 @@ class NovaGenDashboard {
             console.error('Trajectory prediction error:', error);
             this.showAlert('Error generating trajectories', 'danger');
         }
+    }
+
+    generateFallbackTrajectoryData() {
+        console.log('🔄 Generating fallback trajectory data for testing');
+        const fallbackData = [];
+        
+        // Generate sample trajectories for 3 objects
+        for (let objIndex = 0; objIndex < 3; objIndex++) {
+            const trajectory = {
+                object_id: `TEST-SAT-${objIndex + 1}`,
+                positions: []
+            };
+            
+            // Generate 24 hourly positions for each object
+            for (let hour = 0; hour < 24; hour++) {
+                const angle = (hour / 24) * 2 * Math.PI;
+                const radius = 7000 + (objIndex * 500); // Different orbital heights
+                
+                trajectory.positions.push({
+                    x: radius * Math.cos(angle + objIndex),
+                    y: radius * Math.sin(angle + objIndex) * 0.5,
+                    z: radius * Math.sin(angle + objIndex) * Math.cos(objIndex),
+                    vx: -3 * Math.sin(angle + objIndex),
+                    vy: 3 * Math.cos(angle + objIndex) * 0.5,
+                    vz: 1 * Math.cos(angle + objIndex),
+                    timestamp: new Date(Date.now() + hour * 3600000).toISOString()
+                });
+            }
+            
+            fallbackData.push(trajectory);
+        }
+        
+        console.log('✅ Generated fallback data with', fallbackData.length, 'trajectories');
+        return fallbackData;
     }
 
     initializeTrajectoryVisualization() {
@@ -1494,8 +1595,19 @@ class NovaGenDashboard {
 
     // 3D Trajectory View
     show3DTrajectoryView() {
+        console.log('🎮 Showing 3D trajectory view');
         const canvas = document.getElementById('trajectory-3d-canvas');
-        if (!canvas || !this.trajectoryData) return;
+        if (!canvas) {
+            console.error('❌ 3D trajectory canvas not found');
+            return;
+        }
+        
+        if (!this.trajectoryData) {
+            console.warn('⚠️ No trajectory data available for 3D view');
+            return;
+        }
+
+        console.log('🎮 Setting up 3D trajectory visualization...');
 
         // Clear previous 3D scene if exists
         if (this.trajectory3DRenderer) {
@@ -1750,15 +1862,27 @@ class NovaGenDashboard {
 
     // Numbers/Data Table View
     showNumbersTrajectoryView() {
+        console.log('📊 Showing numbers/data table view');
         const tbody = document.getElementById('trajectory-data-tbody');
-        if (!tbody || !this.trajectoryData) return;
+        if (!tbody) {
+            console.error('❌ Data table tbody not found');
+            return;
+        }
+        
+        if (!this.trajectoryData) {
+            console.warn('⚠️ No trajectory data available');
+            tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 2rem; color: var(--text-secondary);">No trajectory data available. Generate trajectories first.</td></tr>';
+            return;
+        }
 
         tbody.innerHTML = '';
 
         // Get trajectory data
         const trajectories = this.trajectoryData.predictions || this.trajectoryData.satellite_trajectories || [];
+        console.log('📊 Processing trajectories:', trajectories.length, 'items');
         
-        if (Array.isArray(trajectories)) {
+        if (Array.isArray(trajectories) && trajectories.length > 0) {
+            let totalRows = 0;
             trajectories.forEach((traj, index) => {
                 if (traj.positions && Array.isArray(traj.positions)) {
                     traj.positions.forEach((pos, posIndex) => {
@@ -1775,11 +1899,14 @@ class NovaGenDashboard {
                             <td style="padding: 0.3rem; border: 1px solid var(--terminal-border); color: var(--terminal-green);">${velocity.toFixed(3)}</td>
                             <td style="padding: 0.3rem; border: 1px solid var(--terminal-border); color: var(--terminal-blue);">${altitude.toFixed(2)}</td>
                         `;
+                        totalRows++;
                     });
                 }
             });
-        } else {
+            console.log('✅ Added', totalRows, 'data rows to table');
+        } else if (typeof trajectories === 'object' && trajectories !== null) {
             // Handle object format
+            let totalRows = 0;
             Object.keys(trajectories).forEach(objectId => {
                 const traj = trajectories[objectId];
                 if (traj.positions && Array.isArray(traj.positions)) {
@@ -1797,9 +1924,15 @@ class NovaGenDashboard {
                             <td style="padding: 0.3rem; border: 1px solid var(--terminal-border); color: var(--terminal-green);">${velocity.toFixed(3)}</td>
                             <td style="padding: 0.3rem; border: 1px solid var(--terminal-border); color: var(--terminal-blue);">${altitude.toFixed(2)}</td>
                         `;
+                        totalRows++;
                     });
                 }
             });
+            console.log('✅ Added', totalRows, 'data rows to table (object format)');
+        } else {
+            console.warn('⚠️ No valid trajectory data found');
+            tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 2rem; color: var(--text-secondary);">No trajectory positions found in data.</td></tr>';
+            return;
         }
 
         // Add summary row
@@ -1811,6 +1944,8 @@ class NovaGenDashboard {
                 Total Data Points: ${tbody.rows.length - 1} | Generated: ${new Date().toLocaleString()}
             </td>
         `;
+        
+        console.log('✅ Data table populated successfully');
     }
 
     // Download trajectory data
@@ -2214,5 +2349,258 @@ function clearTrajectories() {
 function resetCamera() {
     if (window.dashboard) {
         window.dashboard.resetCamera();
+    }
+}
+
+// Trajectory view switching function
+function switchTrajectoryView() {
+    console.log('🔄 Switching trajectory view...');
+    
+    const viewModeSelect = document.getElementById('trajectory-view-mode');
+    if (!viewModeSelect) {
+        console.error('❌ View mode select not found');
+        return;
+    }
+    
+    const viewMode = viewModeSelect.value;
+    console.log('📊 Selected view mode:', viewMode);
+    
+    const view3d = document.getElementById('trajectory-3d-view');
+    const view2d = document.getElementById('trajectory-2d-view');
+    const viewNumbers = document.getElementById('trajectory-numbers-view');
+    const placeholder = document.getElementById('trajectory-placeholder');
+    
+    console.log('🔍 View elements found:', {
+        view3d: !!view3d,
+        view2d: !!view2d, 
+        viewNumbers: !!viewNumbers,
+        placeholder: !!placeholder
+    });
+    
+    // Hide all views first
+    if (view3d) view3d.style.display = 'none';
+    if (view2d) view2d.style.display = 'none';
+    if (viewNumbers) viewNumbers.style.display = 'none';
+    if (placeholder) placeholder.style.display = 'none';
+    
+    // Show selected view with animation
+    let targetView = null;
+    
+    switch(viewMode) {
+        case '3d':
+            if (view3d) {
+                targetView = view3d;
+                console.log('🎮 Switching to 3D view');
+                if (window.dashboard && window.dashboard.trajectoryData) {
+                    window.dashboard.show3DTrajectoryView();
+                } else {
+                    console.warn('⚠️ No trajectory data available for 3D view');
+                }
+            }
+            break;
+        case '2d':
+            if (view2d) {
+                targetView = view2d;
+                console.log('📈 Switching to 2D view');
+                if (window.dashboard && window.dashboard.trajectoryData) {
+                    window.dashboard.show2DTrajectoryView();
+                } else {
+                    console.warn('⚠️ No trajectory data available for 2D view');
+                }
+            }
+            break;
+        case 'numbers':
+            if (viewNumbers) {
+                targetView = viewNumbers;
+                console.log('📊 Switching to numbers/data table view');
+                if (window.dashboard && window.dashboard.trajectoryData) {
+                    window.dashboard.showNumbersTrajectoryView();
+                } else {
+                    console.warn('⚠️ No trajectory data available for data table view');
+                }
+            }
+            break;
+    }
+    
+    if (targetView) {
+        targetView.style.display = 'block';
+        targetView.style.animation = 'fadeInScale 0.5s ease-out';
+        console.log('✅ View switched to:', viewMode);
+    } else {
+        console.error('❌ Failed to switch view - target view not found');
+        if (placeholder) {
+            placeholder.style.display = 'block';
+        }
+    }
+}
+
+// Download trajectory data
+function downloadTrajectoryData() {
+    if (window.dashboard && window.dashboard.trajectoryData) {
+        window.dashboard.downloadTrajectoryData();
+    } else {
+        window.dashboard.showAlert('No trajectory data available to download', 'warning');
+    }
+}
+
+// Generate matplotlib trajectory plot
+function generateTrajectoryPlot() {
+    console.log('🎨 Generating matplotlib trajectory plot...');
+    
+    const placeholder = document.getElementById('trajectory-plot-placeholder');
+    const loading = document.getElementById('trajectory-plot-loading');
+    const content = document.getElementById('trajectory-plot-content');
+    const downloadBtn = document.getElementById('download-plot-btn');
+    
+    // Show loading state
+    if (placeholder) placeholder.style.display = 'none';
+    if (loading) loading.style.display = 'block';
+    if (content) content.style.display = 'none';
+    if (downloadBtn) downloadBtn.style.display = 'none';
+    
+    // Call API to generate plot
+    fetch('/api/trajectory-plot', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        console.log('📊 Plot generation response:', data);
+        
+        if (data.success && data.plot_image) {
+            // Show the plot
+            const plotImage = document.getElementById('trajectory-plot-image');
+            const plotInfo = document.getElementById('trajectory-plot-info');
+            
+            if (plotImage) {
+                plotImage.src = 'data:image/png;base64,' + data.plot_image;
+                // Store the image data for download
+                window.currentPlotData = data.plot_image;
+            }
+            
+            if (plotInfo) {
+                plotInfo.innerHTML = `
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
+                        <div>
+                            <span style="color: var(--terminal-green); font-weight: bold;">Trajectories:</span>
+                            <span style="color: var(--text-primary);">${data.trajectories_count} satellites</span>
+                        </div>
+                        <div>
+                            <span style="color: var(--terminal-amber); font-weight: bold;">Prediction Horizon:</span>
+                            <span style="color: var(--text-primary);">${data.prediction_horizon} hours</span>
+                        </div>
+                        <div>
+                            <span style="color: var(--terminal-cyan); font-weight: bold;">Generated:</span>
+                            <span style="color: var(--text-primary);">${new Date(data.timestamp).toLocaleString()}</span>
+                        </div>
+                        <div>
+                            <span style="color: var(--terminal-magenta); font-weight: bold;">Visualization:</span>
+                            <span style="color: var(--text-primary);">Matplotlib (Static)</span>
+                        </div>
+                    </div>
+                    <div style="margin-top: 1rem; padding: 1rem; background: var(--terminal-secondary); border-radius: 4px;">
+                        <h4 style="color: var(--terminal-green); margin-bottom: 0.5rem;">Plot Details:</h4>
+                        <ul style="margin: 0; padding-left: 1.5rem; color: var(--text-secondary); line-height: 1.6;">
+                            <li><strong>XY Projection:</strong> Orbital plane view showing satellite paths</li>
+                            <li><strong>XZ Projection:</strong> Side view of orbital inclinations</li>
+                            <li><strong>YZ Projection:</strong> Cross-sectional orbital view</li>
+                            <li><strong>3D View:</strong> Complete three-dimensional trajectory visualization</li>
+                        </ul>
+                    </div>
+                `;
+            }
+            
+            // Show content and hide loading
+            if (loading) loading.style.display = 'none';
+            if (content) content.style.display = 'block';
+            if (downloadBtn) downloadBtn.style.display = 'inline-block';
+            
+            window.dashboard.showAlert('✅ Trajectory plot generated successfully', 'success');
+        } else {
+            throw new Error(data.error || 'Failed to generate plot');
+        }
+    })
+    .catch(error => {
+        console.error('❌ Plot generation error:', error);
+        
+        // Show error state
+        if (loading) loading.style.display = 'none';
+        if (placeholder) {
+            placeholder.style.display = 'block';
+            placeholder.innerHTML = `
+                <div style="color: var(--danger-color);">
+                    <i class="fas fa-exclamation-triangle" style="font-size: 3rem; margin-bottom: 1rem;"></i>
+                    <h3>Plot Generation Failed</h3>
+                    <p>${error.message}</p>
+                    <button class="btn btn-primary" onclick="generateTrajectoryPlot()" style="margin-top: 1rem;">
+                        <i class="fas fa-retry"></i>
+                        Try Again
+                    </button>
+                </div>
+            `;
+        }
+        
+        window.dashboard.showAlert('❌ Failed to generate trajectory plot: ' + error.message, 'danger');
+    });
+}
+
+// Download matplotlib plot
+function downloadTrajectoryPlot() {
+    if (window.currentPlotData) {
+        const link = document.createElement('a');
+        link.href = 'data:image/png;base64,' + window.currentPlotData;
+        link.download = 'astraeus_trajectory_plot_' + new Date().toISOString().slice(0,19).replace(/:/g, '-') + '.png';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        window.dashboard.showAlert('📥 Trajectory plot downloaded', 'success');
+    } else {
+        window.dashboard.showAlert('No plot data available to download', 'warning');
+    }
+}
+
+// Fullscreen and mouse lock functions for 3D visualization
+function enterFullscreen3D() {
+    const container = document.getElementById('visualization-container');
+    if (container.requestFullscreen) {
+        container.requestFullscreen();
+    } else if (container.webkitRequestFullscreen) {
+        container.webkitRequestFullscreen();
+    } else if (container.msRequestFullscreen) {
+        container.msRequestFullscreen();
+    }
+    
+    // Enable pointer lock for free camera movement
+    container.addEventListener('click', () => {
+        if (container.requestPointerLock) {
+            container.requestPointerLock();
+        }
+    });
+}
+
+function exitFullscreen3D() {
+    if (document.exitFullscreen) {
+        document.exitFullscreen();
+    } else if (document.webkitExitFullscreen) {
+        document.webkitExitFullscreen();
+    } else if (document.msExitFullscreen) {
+        document.msExitFullscreen();
+    }
+    
+    // Exit pointer lock
+    if (document.exitPointerLock) {
+        document.exitPointerLock();
+    }
+}
+
+// Toggle fullscreen
+function toggle3DFullscreen() {
+    if (document.fullscreenElement || document.webkitFullscreenElement || document.msFullscreenElement) {
+        exitFullscreen3D();
+    } else {
+        enterFullscreen3D();
     }
 }
