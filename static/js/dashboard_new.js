@@ -12,6 +12,13 @@ class NovaGenDashboard {
         this.selectedSatellite = null;
         this.satelliteList = [];
         this.controls = null;
+        this.earthRotationSpeed = 0.005;
+        this.satelliteSize = 1;
+        this.targetEarthRotationSpeed = 0.005;
+        this.currentEarthRotationSpeed = 0.005;
+        this.targetCameraDistanceKm = null;
+        this.minCameraDistanceKm = 10000;
+        this.maxCameraDistanceKm = 50000;
         
         this.init();
     }
@@ -26,10 +33,11 @@ class NovaGenDashboard {
     setupEventListeners() {
         // Resize handler
         window.addEventListener('resize', () => {
-            if (this.camera && this.renderer) {
-                this.camera.aspect = window.innerWidth / window.innerHeight;
+            const container = document.getElementById('visualization-container');
+            if (this.camera && this.renderer && container) {
+                this.camera.aspect = container.clientWidth / container.clientHeight;
                 this.camera.updateProjectionMatrix();
-                this.renderer.setSize(window.innerWidth, window.innerHeight);
+                this.renderer.setSize(container.clientWidth, container.clientHeight);
             }
         });
     }
@@ -46,6 +54,7 @@ class NovaGenDashboard {
         // Advanced camera with optimized FOV
         this.camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 1, 100000);
         this.camera.position.set(25000, 15000, 25000);
+        this.camera.lookAt(0, 0, 0);
 
         // SOTA renderer with enhanced settings
         this.renderer = new THREE.WebGLRenderer({ 
@@ -237,7 +246,8 @@ class NovaGenDashboard {
         canvas.addEventListener('wheel', (event) => {
             const scale = event.deltaY > 0 ? 1.1 : 0.9;
             this.camera.position.multiplyScalar(scale);
-            this.camera.position.clampLength(15000, 500000);
+            this.camera.position.clampLength(this.minCameraDistanceKm, this.maxCameraDistanceKm);
+            this.targetCameraDistanceKm = Math.max(this.minCameraDistanceKm, Math.min(this.maxCameraDistanceKm, this.camera.position.length()));
         });
 
         canvas.style.cursor = 'grab';
@@ -279,7 +289,8 @@ class NovaGenDashboard {
                 sat.position?.z || Math.random() * 20000 - 10000
             );
 
-            satellite.userData = { id: index, ...sat };
+            satellite.userData = { type: sat.is_debris ? 'debris' : 'satellite', id: index, ...sat };
+            satellite.scale.setScalar(this.satelliteSize || 1);
             this.satellites.push(satellite);
             this.scene.add(satellite);
         });
@@ -1188,7 +1199,7 @@ class NovaGenDashboard {
 
     resetCamera() {
         if (this.camera) {
-            this.camera.position.set(0, 0, 50);
+            this.camera.position.set(25000, 15000, 25000);
             this.camera.lookAt(0, 0, 0);
         }
     }
@@ -1221,24 +1232,27 @@ class NovaGenDashboard {
     }
 
     updateEarthRotation(speed) {
-        this.earthRotationSpeed = parseFloat(speed);
+        const v = parseFloat(speed);
+        this.earthRotationSpeed = v;
+        this.targetEarthRotationSpeed = v;
     }
 
     updateViewDistance(distance) {
         if (this.camera) {
-            const dist = parseFloat(distance);
-            this.camera.position.setLength(dist);
+            const t = Math.max(0, Math.min(1, parseFloat(distance) / 100));
+            const ease = (x) => x * x * (3 - 2 * x);
+            const k = ease(t);
+            const distKm = this.minCameraDistanceKm + k * (this.maxCameraDistanceKm - this.minCameraDistanceKm);
+            this.targetCameraDistanceKm = distKm;
         }
     }
 
     resetSettings() {
         document.getElementById('satellite-size').value = 1;
-        document.getElementById('earth-rotation').value = 0.005;
-        document.getElementById('view-distance').value = 50;
+        document.getElementById('view-distance').value = 30;
         
         this.updateSatelliteSize(1);
-        this.updateEarthRotation(0.005);
-        this.updateViewDistance(50);
+        this.updateViewDistance(30);
     }
 
     updateLiveStatistics() {
@@ -1274,9 +1288,25 @@ class NovaGenDashboard {
             this.updateCameraRotation();
         }
         
-        // Rotate Earth slowly
+        if (!this._lastFrameTime) this._lastFrameTime = performance.now();
+        const now = performance.now();
+        const dt = (now - this._lastFrameTime) / 1000;
+        this._lastFrameTime = now;
+
+        // Smooth earth rotation
         if (this.earth) {
-            this.earth.rotation.y += this.earthRotationSpeed || 0.002;
+            const target = Number.isFinite(this.targetEarthRotationSpeed) ? this.targetEarthRotationSpeed : 0.002;
+            this.currentEarthRotationSpeed += (target - this.currentEarthRotationSpeed) * 0.2;
+            this.earth.rotation.y += this.currentEarthRotationSpeed * dt;
+        }
+
+        // Smooth camera distance interpolation if target set
+        if (this.camera && this.targetCameraDistanceKm) {
+            const currentDist = this.camera.position.length();
+            const newDist = currentDist + (this.targetCameraDistanceKm - currentDist) * 0.18;
+            const dir = this.camera.position.clone().normalize();
+            this.camera.position.copy(dir.multiplyScalar(Math.max(this.minCameraDistanceKm, Math.min(this.maxCameraDistanceKm, newDist))));
+            this.camera.lookAt(0, 0, 0);
         }
         
         // Animate stars twinkling
