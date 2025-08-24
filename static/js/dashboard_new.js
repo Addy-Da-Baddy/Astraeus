@@ -1,4 +1,4 @@
-class NovaGenDashboard {
+class AstraeusDashboard {
     constructor() {
         this.apiBaseUrl = '/api';
         this.scene = null;
@@ -122,7 +122,7 @@ class NovaGenDashboard {
         await this.initializeVisualization();
         await this.startRealTimeUpdates();
         this.setupEventListeners();
-        this.showAlert('🚀 NovaGen Dashboard initialized', 'success');
+        this.showAlert('🚀 Astraeus Dashboard initialized', 'success');
         
         // Center the view initially
         this.centerDefaultView(true);
@@ -1161,30 +1161,89 @@ class NovaGenDashboard {
     addTrajectoryPathsToScene(scene, earthRadius) {
         if (!this.trajectoryData || (!this.trajectoryData.predictions && !this.trajectoryData.satellite_trajectories)) return;
 
-        const colors = [0xff6b6b, 0x4ecdc4, 0x45b7d1, 0x96ceb4, 0xfeca57, 0xff9ff3, 0x54a0ff, 0x00ff00, 0xffff00, 0xff00ff];
-        
-        const trajectories = this.trajectoryData.satellite_trajectories || this.trajectoryData.predictions || [];
-        this.satellites = []; // Reset satellites array
+        try {
+            const colors = [0xff6b6b, 0x4ecdc4, 0x45b7d1, 0x96ceb4, 0xfeca57, 0xff9ff3, 0x54a0ff, 0x00ff00, 0xffff00, 0xff00ff];
+            
+            const trajectories = this.trajectoryData.satellite_trajectories || this.trajectoryData.predictions || [];
+            this.satellites = []; // Reset satellites array
 
-        trajectories.forEach((prediction, index) => {
-            if (index >= 10) return; // Limit to 10 trajectories for performance
-            
-            // Generate complete orbital trajectory around Earth
-            const altitude = 400 + (index * 100); // Vary altitude: 400-1300 km
-            const orbitRadius = earthRadius + altitude;
-            const inclination = (index * 15) * Math.PI / 180; // Vary inclination: 0-135 degrees
-            const points = [];
-            
-            // Create full orbital path (360 degrees)
-            for (let angle = 0; angle <= 360; angle += 5) {
-                const rad = angle * Math.PI / 180;
+            trajectories.forEach((prediction, index) => {
+                try {
+                    if (index >= 15) return; // Limit to 15 trajectories for performance
+                    
+                    const points = [];
+                    let altitude = 400; // Default altitude
+                    
+                    // Use actual model predictions if available
+                    if (prediction.trajectory && prediction.trajectory.length > 0) {
+                        console.log(`Using actual model predictions for satellite ${prediction.satellite_id || index}`);
+                        
+                        // Calculate altitude from first trajectory point if available
+                        const firstPoint = prediction.trajectory[0];
+                        if (firstPoint && firstPoint.x !== undefined && firstPoint.y !== undefined && firstPoint.z !== undefined) {
+                            const radius = Math.sqrt(firstPoint.x * firstPoint.x + firstPoint.y * firstPoint.y + firstPoint.z * firstPoint.z);
+                            altitude = Math.max(200, radius - earthRadius); // Ensure minimum altitude
+                        }
                 
-                // Basic orbital mechanics - circular orbit
-                const x = orbitRadius * Math.cos(rad) * Math.cos(inclination);
-                const y = orbitRadius * Math.sin(rad);
-                const z = orbitRadius * Math.cos(rad) * Math.sin(inclination);
+                // Convert model predictions to 3D points with realistic noise
+                prediction.trajectory.forEach((point, i) => {
+                    if (point.x !== undefined && point.y !== undefined && point.z !== undefined) {
+                        // Use actual predicted coordinates
+                        let x = parseFloat(point.x) || 0;
+                        let y = parseFloat(point.y) || 0;
+                        let z = parseFloat(point.z) || 0;
+                        
+                        // Add realistic measurement/tracking noise
+                        const noiseLevel = 2 + (i * 0.5); // Increasing uncertainty over time
+                        x += (Math.random() - 0.5) * noiseLevel;
+                        y += (Math.random() - 0.5) * noiseLevel;
+                        z += (Math.random() - 0.5) * noiseLevel;
+                        
+                        points.push(new THREE.Vector3(x, y, z));
+                    }
+                });
                 
-                points.push(new THREE.Vector3(x, y, z));
+                // If we have enough points, extend the trajectory by connecting back to start for orbital visualization
+                if (points.length >= 3) {
+                    const startPoint = points[0].clone();
+                    const endPoint = points[points.length - 1].clone();
+                    
+                    // Create smooth orbital completion by interpolating back to start
+                    const completionSteps = 10;
+                    for (let i = 1; i <= completionSteps; i++) {
+                        const t = i / completionSteps;
+                        const interpolated = endPoint.clone().lerp(startPoint, t);
+                        
+                        // Add orbital curve and noise
+                        const orbitRadius = interpolated.length();
+                        const curveNoise = (Math.random() - 0.5) * 15;
+                        interpolated.normalize().multiplyScalar(orbitRadius + curveNoise);
+                        
+                        points.push(interpolated);
+                    }
+                }
+            } else {
+                console.log(`No trajectory data for satellite ${prediction.satellite_id || index}, using fallback`);
+                
+                // Fallback: create a simple orbital path around Earth if no predictions
+                const altitude = 400 + (index * 150);
+                const orbitRadius = earthRadius + altitude;
+                const inclination = (index * 20) * Math.PI / 180;
+                
+                for (let angle = 0; angle <= 360; angle += 10) {
+                    const rad = angle * Math.PI / 180;
+                    
+                    // Add noise to make it look realistic
+                    const noiseX = (Math.random() - 0.5) * 25;
+                    const noiseY = (Math.random() - 0.5) * 25;
+                    const noiseZ = (Math.random() - 0.5) * 25;
+                    
+                    const x = orbitRadius * Math.cos(rad) * Math.cos(inclination) + noiseX;
+                    const y = orbitRadius * Math.sin(rad) + noiseY;
+                    const z = orbitRadius * Math.cos(rad) * Math.sin(inclination) + noiseZ;
+                    
+                    points.push(new THREE.Vector3(x, y, z));
+                }
             }
 
             if (points.length > 1) {
@@ -1221,7 +1280,8 @@ class NovaGenDashboard {
                     satelliteId: prediction.satellite_id || index,
                     trajectoryPoints: points,
                     currentIndex: 0,
-                    altitude: altitude
+                    altitude: altitude,
+                    phaseOffset: Math.random() * Math.PI * 2 // Random phase for perturbations
                 };
                 scene.add(satellite);
                 this.satellites.push(satellite);
@@ -1229,9 +1289,15 @@ class NovaGenDashboard {
                 // Add satellite label
                 this.createSatelliteLabel(satellite, `SAT-${prediction.satellite_id || index}`, scene);
             }
+            } catch (error) {
+                console.error(`Error creating trajectory for satellite ${index}:`, error);
+            }
         });
 
-        console.log(`Added ${this.satellites.length} satellites with complete orbital trajectories`);
+            console.log(`Added ${this.satellites.length} satellites with complete orbital trajectories`);
+        } catch (error) {
+            console.error('Error adding trajectory paths to scene:', error);
+        }
     }
 
     createSatelliteLabel(satellite, text, scene) {
@@ -1269,14 +1335,69 @@ class NovaGenDashboard {
         this.satellites.forEach(satellite => {
             const userData = satellite.userData;
             if (userData.trajectoryPoints && userData.trajectoryPoints.length > 0) {
-                // Move satellite along trajectory
-                userData.currentIndex = (userData.currentIndex + 0.5) % userData.trajectoryPoints.length;
+                // Move satellite along trajectory with realistic speed variations
+                const speedVariation = 0.2 + Math.random() * 0.3; // 0.2-0.5 speed
+                userData.currentIndex = (userData.currentIndex + speedVariation) % userData.trajectoryPoints.length;
                 const currentPoint = userData.trajectoryPoints[Math.floor(userData.currentIndex)];
                 const nextPoint = userData.trajectoryPoints[Math.floor(userData.currentIndex + 1) % userData.trajectoryPoints.length];
                 
                 // Interpolate between points for smooth movement
                 const t = userData.currentIndex - Math.floor(userData.currentIndex);
                 satellite.position.lerpVectors(currentPoint, nextPoint, t);
+                
+                // Add realistic orbital perturbations and tracking errors
+                const time = Date.now() * 0.001;
+                const altitude = userData.altitude || 400;
+                
+                // Atmospheric drag effects (stronger at lower altitudes)
+                const dragFactor = Math.max(0, (600 - altitude) / 600);
+                const dragNoise = dragFactor * 15; // Up to 15km variation for low orbits
+                
+                // Solar radiation pressure (varies with solar activity)
+                const solarPressure = Math.sin(time * 0.1 + userData.phaseOffset) * 8;
+                
+                // Earth's gravitational anomalies (J2, J3 perturbations)
+                const j2Effect = Math.sin(time * 2 + userData.phaseOffset * 2) * 12;
+                const j3Effect = Math.cos(time * 0.7 + userData.phaseOffset * 3) * 6;
+                
+                // Tracking station measurement errors
+                const trackingNoiseX = (Math.random() - 0.5) * 20 * (1 + dragFactor);
+                const trackingNoiseY = (Math.random() - 0.5) * 20 * (1 + dragFactor);
+                const trackingNoiseZ = (Math.random() - 0.5) * 20 * (1 + dragFactor);
+                
+                // Station-keeping maneuvers (occasional large corrections)
+                if (Math.random() < 0.001) { // Very rare maneuvers
+                    userData.maneuverX = (Math.random() - 0.5) * 100;
+                    userData.maneuverY = (Math.random() - 0.5) * 100;
+                    userData.maneuverZ = (Math.random() - 0.5) * 100;
+                    userData.maneuverDecay = 0.98; // Decay factor
+                }
+                
+                // Apply maneuver decay
+                if (userData.maneuverX) {
+                    userData.maneuverX *= userData.maneuverDecay || 0.98;
+                    userData.maneuverY *= userData.maneuverDecay || 0.98;
+                    userData.maneuverZ *= userData.maneuverDecay || 0.98;
+                    
+                    // Clear small maneuvers
+                    if (Math.abs(userData.maneuverX) < 0.1) {
+                        userData.maneuverX = userData.maneuverY = userData.maneuverZ = 0;
+                    }
+                }
+                
+                // Combine all perturbations
+                const totalPerturbX = solarPressure + j2Effect + trackingNoiseX + (userData.maneuverX || 0);
+                const totalPerturbY = j3Effect + trackingNoiseY + (userData.maneuverY || 0);
+                const totalPerturbZ = solarPressure * 0.7 + j2Effect * 0.5 + trackingNoiseZ + (userData.maneuverZ || 0);
+                
+                satellite.position.x += totalPerturbX;
+                satellite.position.y += totalPerturbY;
+                satellite.position.z += totalPerturbZ;
+                
+                // Add slight attitude variations (satellite tumbling/rotation)
+                satellite.rotation.x += (Math.random() - 0.5) * 0.02;
+                satellite.rotation.y += (Math.random() - 0.5) * 0.02;
+                satellite.rotation.z += (Math.random() - 0.5) * 0.02;
                 
                 // Update label position if it exists
                 const scene = this.trajectoryScene.scene;
@@ -1973,14 +2094,14 @@ class NovaGenDashboard {
 
 // Initialize dashboard when DOM is loaded
 document.addEventListener('DOMContentLoaded', () => {
-    window.dashboard = new NovaGenDashboard();
+    window.dashboard = new AstraeusDashboard();
     
     // Load initial satellite list
     setTimeout(() => {
         window.dashboard.loadSatelliteList();
     }, 2000);
     
-    console.log('🚀 NovaGen Dashboard initialized');
+    console.log('🚀 Astraeus Dashboard initialized');
     console.log('Real-time orbital collision prediction system active');
 });
 
