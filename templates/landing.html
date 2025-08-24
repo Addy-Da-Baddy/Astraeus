@@ -123,8 +123,8 @@
         }
 
         .feature-card:nth-child(1) .feature-icon { color: var(--terminal-white); }
-        .feature-card:nth-child(2) .feature-icon { color: var(--terminal-cyan); }
-        .feature-card:nth-child(3) .feature-icon { color: var(--terminal-amber); }
+        .feature-card:nth-child(2) .feature-icon { color: var(--terminal-white); }
+        .feature-card:nth-child(3) .feature-icon { color: var(--terminal-white); }
 
         .feature-title {
             font-size: 1.25rem;
@@ -207,19 +207,19 @@
             .logo {
                 font-size: 2.5rem;
             }
-            
+
             .tagline {
                 font-size: 1.2rem;
             }
-            
+
             .features {
                 grid-template-columns: 1fr;
             }
-            
+
             .landing-container {
                 padding: 1rem;
             }
-            
+
             .cta {
                 padding: 2rem;
             }
@@ -303,17 +303,17 @@
         function createStars() {
             const starsContainer = document.getElementById('stars');
             const numStars = 100;
-            
+
             for (let i = 0; i < numStars; i++) {
                 const star = document.createElement('div');
                 star.className = 'star';
                 star.style.left = Math.random() * 100 + '%';
                 star.style.top = Math.random() * 100 + '%';
-                
+
                 // Random colors
                 const colors = ['var(--terminal-green)', 'var(--terminal-cyan)', 'var(--terminal-white)'];
                 star.style.background = colors[Math.floor(Math.random() * colors.length)];
-                
+
                 starsContainer.appendChild(star);
             }
         }
@@ -326,15 +326,15 @@
             try {
                 const response = await fetch('/api/data');
                 const data = await response.json();
-                
+
                 if (data.success) {
                     const ticker = document.querySelector('.ticker-content');
                     ticker.innerHTML = `
-                        ACTIVE SATELLITES: ${data.total_objects || 0} • 
-                        DEBRIS OBJECTS: ${data.debris_count || 0} • 
-                        HIGH-RISK CONJUNCTIONS: ${data.high_risk_count || 0} • 
-                        COLLISION PROBABILITY: ${(data.collision_probability || 0).toFixed(3)}% • 
-                        PREDICTION ACCURACY: 94.2% • 
+                        ACTIVE SATELLITES: ${data.total_objects || 0} •
+                        DEBRIS OBJECTS: ${data.debris_count || 0} •
+                        HIGH-RISK CONJUNCTIONS: ${data.high_risk_count || 0} •
+                        COLLISION PROBABILITY: ${(data.collision_probability || 0).toFixed(3)}% •
+                        PREDICTION ACCURACY: 94.2% •
                         LAST UPDATE: ${new Date().toLocaleTimeString()}
                     `;
                 }

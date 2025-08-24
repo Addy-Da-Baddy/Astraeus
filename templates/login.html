@@ -1,4 +1,4 @@
-w<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -67,14 +67,14 @@ w<!DOCTYPE html>
             width: 1px;
         }
 
-        
+
 
         /* Login container */
         .login-container {
             position: relative;
             z-index: 10;
             width: 100%;
-            max-width: 400px;
+            max-width: 500px;
             padding: 2rem;
         }
 
@@ -82,21 +82,9 @@ w<!DOCTYPE html>
             background: #0f0f0f;
             border: 1px solid var(--terminal-border);
             border-radius: 12px;
-            padding: 3rem;
+            padding: 2rem;
             backdrop-filter: blur(20px);
             box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
-            position: relative;
-            overflow: hidden;
-        }
-
-        .login-card::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            height: 1px;
-            background: var(--terminal-border);
         }
 
         /* Header */
@@ -278,7 +266,7 @@ w<!DOCTYPE html>
             .login-container {
                 padding: 1rem;
             }
-            
+
             .login-card {
                 padding: 2rem;
             }
@@ -309,11 +297,11 @@ w<!DOCTYPE html>
                     <label class="form-label" for="username">
                         <i class="fas fa-user"></i> Username
                     </label>
-                    <input 
-                        type="text" 
-                        id="username" 
-                        name="username" 
-                        class="form-input" 
+                    <input
+                        type="text"
+                        id="username"
+                        name="username"
+                        class="form-input"
                         placeholder="Enter username"
                         required
                         autocomplete="username"
@@ -324,11 +312,11 @@ w<!DOCTYPE html>
                     <label class="form-label" for="password">
                         <i class="fas fa-lock"></i> Password
                     </label>
-                    <input 
-                        type="password" 
-                        id="password" 
-                        name="password" 
-                        class="form-input" 
+                    <input
+                        type="password"
+                        id="password"
+                        name="password"
+                        class="form-input"
                         placeholder="Enter password"
                         required
                         autocomplete="current-password"
@@ -360,7 +348,7 @@ w<!DOCTYPE html>
         document.getElementById('togglePassword').addEventListener('click', function() {
             const password = document.getElementById('password');
             const icon = this;
-            
+
             if (password.type === 'password') {
                 password.type = 'text';
                 icon.classList.remove('fa-eye');
@@ -375,7 +363,7 @@ w<!DOCTYPE html>
         // Form submission
         document.getElementById('loginForm').addEventListener('submit', async function(e) {
             e.preventDefault();
-            
+
             const username = document.getElementById('username').value;
             const password = document.getElementById('password').value;
             const loginBtn = document.getElementById('loginBtn');
@@ -401,7 +389,7 @@ w<!DOCTYPE html>
 
                 if (data.success) {
                     showAlert('Access granted! Launching mission control...', 'success');
-                    
+
                     // Redirect to dashboard after short delay
                     setTimeout(() => {
                         window.location.href = '/dashboard';
@@ -420,7 +408,7 @@ w<!DOCTYPE html>
             const alert = document.getElementById('alert');
             alert.textContent = message;
             alert.className = `alert alert-${type} show`;
-            
+
             setTimeout(() => {
                 alert.classList.remove('show');
             }, 5000);
@@ -430,7 +418,7 @@ w<!DOCTYPE html>
             const loginBtn = document.getElementById('loginBtn');
             const loading = document.getElementById('loading');
             const btnText = document.querySelector('.btn-text');
-            
+
             loginBtn.disabled = false;
             btnText.style.opacity = '1';
             loading.style.display = 'none';
