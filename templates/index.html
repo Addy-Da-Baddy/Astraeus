@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NovaGen - Orbital Collision Risk Prediction</title>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Exo+2:wght@300;400;600&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/dat-gui/0.7.9/dat.gui.min.js"></script>
+    <style>
+        :root {
+            --primary-color: #00d4ff;
+            --secondary-color: #ff6b35;
+            --accent-color: #7b68ee;
+            --danger-color: #ff4757;
+            --success-color: #2ed573;
+            --warning-color: #ffa502;
+            --dark-bg: #0a0a0a;
+            --card-bg: rgba(20, 20, 30, 0.9);
+            --text-primary: #ffffff;
+            --text-secondary: #b8b8b8;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Exo 2', sans-serif;
+            background: linear-gradient(135deg, #0a0a0a 0%, #1a1a2e 50%, #16213e 100%);
+            color: var(--text-primary);
+            overflow: hidden;
+            height: 100vh;
+        }
+
+        /* Animated background stars */
+        .stars {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 1;
+        }
+
+        .star {
+            position: absolute;
+            background: white;
+            border-radius: 50%;
+            animation: twinkle 2s infinite alternate;
+        }
+
+        @keyframes twinkle {
+            0% { opacity: 0.3; }
+            100% { opacity: 1; }
+        }
+
+        /* Header */
+        .header {
+            position: relative;
+            z-index: 100;
+            background: rgba(10, 10, 10, 0.95);
+            border-bottom: 2px solid var(--primary-color);
+            padding: 1rem 2rem;
+            backdrop-filter: blur(10px);
+        }
+
+        .header h1 {
+            font-family: 'Orbitron', monospace;
+            font-size: 2.5rem;
+            font-weight: 900;
+            background: linear-gradient(45deg, var(--primary-color), var(--accent-color));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            display: inline-block;
+            text-shadow: 0 0 20px rgba(0, 212, 255, 0.5);
+        }
+
+        .subtitle {
+            font-size: 1rem;
+            color: var(--text-secondary);
+            margin-top: 0.5rem;
+            font-weight: 300;
+        }
+
+        /* Main layout */
+        .main-container {
+            display: grid;
+            grid-template-columns: 350px 1fr 300px;
+            height: calc(100vh - 100px);
+            gap: 1rem;
+            padding: 1rem;
+            position: relative;
+            z-index: 10;
+        }
+
+        /* Control Panel */
+        .control-panel {
+            background: var(--card-bg);
+            border-radius: 15px;
+            padding: 1.5rem;
+            backdrop-filter: blur(15px);
+            border: 1px solid rgba(0, 212, 255, 0.3);
+            overflow-y: auto;
+        }
+
+        .status-card {
+            background: rgba(0, 212, 255, 0.1);
+            border-radius: 10px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            border: 1px solid var(--primary-color);
+        }
+
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .status-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: var(--success-color);
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .metric {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.5rem 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .metric:last-child {
+            border-bottom: none;
+        }
+
+        .metric-value {
+            font-weight: 600;
+            color: var(--primary-color);
+        }
+
+        .danger { color: var(--danger-color); }
+        .warning { color: var(--warning-color); }
+        .success { color: var(--success-color); }
+
+        /* 3D Visualization */
+        .visualization {
+            background: var(--card-bg);
+            border-radius: 15px;
+            border: 1px solid rgba(123, 104, 238, 0.3);
+            position: relative;
+            overflow: hidden;
+        }
+
+        #threejs-container {
+            width: 100%;
+            height: 100%;
+        }
+
+        .viz-controls {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(0, 0, 0, 0.7);
+            border-radius: 10px;
+            padding: 1rem;
+            border: 1px solid var(--primary-color);
+        }
+
+        /* Data Panel */
+        .data-panel {
+            background: var(--card-bg);
+            border-radius: 15px;
+            padding: 1.5rem;
+            backdrop-filter: blur(15px);
+            border: 1px solid rgba(255, 107, 53, 0.3);
+            overflow-y: auto;
+        }
+
+        .debris-list {
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .debris-item {
+            background: rgba(255, 71, 87, 0.1);
+            border-radius: 8px;
+            padding: 0.8rem;
+            margin-bottom: 0.5rem;
+            border-left: 3px solid var(--danger-color);
+        }
+
+        .satellite-item {
+            background: rgba(0, 212, 255, 0.1);
+            border-radius: 8px;
+            padding: 0.8rem;
+            margin-bottom: 0.5rem;
+            border-left: 3px solid var(--primary-color);
+        }
+
+        /* Buttons */
+        .btn {
+            background: linear-gradient(45deg, var(--primary-color), var(--accent-color));
+            border: none;
+            padding: 0.8rem 1.5rem;
+            border-radius: 25px;
+            color: white;
+            font-weight: 600;
+            cursor: pointer;
+            font-family: 'Exo 2', sans-serif;
+            transition: all 0.3s ease;
+            width: 100%;
+            margin: 0.5rem 0;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(0, 212, 255, 0.3);
+        }
+
+        .btn-danger {
+            background: linear-gradient(45deg, var(--danger-color), #ff3838);
+        }
+
+        /* Loading animation */
+        .loading {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100px;
+        }
+
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid rgba(0, 212, 255, 0.3);
+            border-top: 3px solid var(--primary-color);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Alert system */
+        .alert {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: var(--danger-color);
+            color: white;
+            padding: 1rem 1.5rem;
+            border-radius: 10px;
+            z-index: 1000;
+            animation: slideIn 0.5s ease;
+        }
+
+        @keyframes slideIn {
+            from { transform: translateX(100%); }
+            to { transform: translateX(0); }
+        }
+
+        /* Responsive */
+        @media (max-width: 1200px) {
+            .main-container {
+                grid-template-columns: 300px 1fr 250px;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .main-container {
+                grid-template-columns: 1fr;
+                grid-template-rows: auto 1fr auto;
+            }
+            
+            .header h1 {
+                font-size: 1.8rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Animated background -->
+    <div class="stars" id="stars"></div>
+
+    <!-- Header -->
+    <header class="header">
+        <h1><i class="fas fa-satellite"></i> NovaGen</h1>
+        <p class="subtitle">Real-time Orbital Collision Risk Prediction System</p>
+    </header>
+
+    <!-- Main Container -->
+    <div class="main-container">
+        <!-- Control Panel -->
+        <div class="control-panel">
+            <h3><i class="fas fa-tachometer-alt"></i> System Status</h3>
+            
+            <div class="status-card">
+                <div class="status-indicator">
+                    <div class="status-dot" id="status-dot"></div>
+                    <span id="system-status">Initializing...</span>
+                </div>
+                
+                <div class="metric">
+                    <span>Total Objects</span>
+                    <span class="metric-value" id="total-objects">-</span>
+                </div>
+                
+                <div class="metric">
+                    <span>Debris Detected</span>
+                    <span class="metric-value danger" id="debris-count">-</span>
+                </div>
+                
+                <div class="metric">
+                    <span>High Risk Objects</span>
+                    <span class="metric-value warning" id="high-risk-count">-</span>
+                </div>
+                
+                <div class="metric">
+                    <span>Collision Probability</span>
+                    <span class="metric-value" id="collision-prob">-</span>
+                </div>
+            </div>
+
+            <button class="btn" onclick="manualUpdate()">
+                <i class="fas fa-sync-alt"></i> Update Now
+            </button>
+            
+            <button class="btn btn-danger" onclick="toggleAlert()">
+                <i class="fas fa-exclamation-triangle"></i> Test Alert
+            </button>
+
+            <h4 style="margin-top: 2rem;"><i class="fas fa-cog"></i> Visualization Controls</h4>
+            
+            <div style="margin: 1rem 0;">
+                <label>Show Debris Only</label>
+                <input type="checkbox" id="debris-filter" onchange="toggleDebrisFilter()">
+            </div>
+            
+            <div style="margin: 1rem 0;">
+                <label>Animation Speed</label>
+                <input type="range" id="speed-control" min="0.1" max="3" step="0.1" value="1" onchange="updateSpeed()">
+            </div>
+        </div>
+
+        <!-- 3D Visualization -->
+        <div class="visualization">
+            <div id="threejs-container"></div>
+            <div class="viz-controls">
+                <div style="color: var(--primary-color); margin-bottom: 10px;">
+                    <i class="fas fa-circle" style="color: var(--primary-color);"></i> Active Satellites
+                </div>
+                <div style="color: var(--danger-color);">
+                    <i class="fas fa-circle" style="color: var(--danger-color);"></i> Space Debris
+                </div>
+            </div>
+        </div>
+
+        <!-- Data Panel -->
+        <div class="data-panel">
+            <h3><i class="fas fa-database"></i> Live Data</h3>
+            
+            <div id="last-update" style="font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 1rem;">
+                Last Update: Initializing...
+            </div>
+
+            <h4><i class="fas fa-skull-crossbones"></i> Debris Objects</h4>
+            <div class="debris-list" id="debris-list">
+                <div class="loading">
+                    <div class="spinner"></div>
+                </div>
+            </div>
+
+            <h4 style="margin-top: 1.5rem;"><i class="fas fa-satellite"></i> Recent Satellites</h4>
+            <div class="debris-list" id="satellite-list">
+                <div class="loading">
+                    <div class="spinner"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html>
