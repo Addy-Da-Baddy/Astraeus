@@ -635,6 +635,8 @@ class NovaGenDashboard {
             this.showAlert('🚀 Generating trajectory predictions...', 'info');
             
             const resultContainer = document.getElementById('trajectory-results');
+            const trajectoryContainer = document.getElementById('trajectory-container');
+            
             resultContainer.innerHTML = '<div style="text-align: center; padding: 2rem;"><div class="loading"></div><p>Calculating orbital trajectories...</p></div>';
             
             const response = await fetch(`${this.apiBaseUrl}/trajectory-bulk`, { method: 'POST' });
@@ -645,6 +647,12 @@ class NovaGenDashboard {
                 this.showAlert('Trajectory prediction failed: ' + data.error, 'danger');
                 return;
             }
+
+            // Store trajectory data for visualization
+            this.trajectoryData = data;
+            console.log('📊 Trajectory data received:', data);
+            console.log('📊 Trajectories count:', data.trajectories_generated);
+            console.log('📊 Predictions/satellite_trajectories:', data.predictions || data.satellite_trajectories);
 
             // Display results
             resultContainer.innerHTML = `
@@ -658,7 +666,7 @@ class NovaGenDashboard {
                         <div style="font-size: 0.9rem;">Prediction Horizon</div>
                     </div>
                 </div>
-                <div style="padding: 1rem; background: rgba(255, 255, 255, 0.05); border-radius: 8px;">
+                <div style="padding: 1rem; background: rgba(255, 255, 255, 0.05); border-radius: 8px; margin-bottom: 1rem;">
                     <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
                         <span>Neural Network Model:</span>
                         <span style="color: var(--success-color);">LSTM + GRU</span>
@@ -672,13 +680,342 @@ class NovaGenDashboard {
                         <span>${new Date().toLocaleTimeString()}</span>
                     </div>
                 </div>
+                <div style="display: flex; gap: 1rem; justify-content: center;">
+                    <button class="btn btn-primary" onclick="window.dashboard.showTrajectoriesIn3D()">
+                        <i class="fas fa-cube"></i> View in 3D
+                    </button>
+                    <button class="btn btn-outline" onclick="window.dashboard.showTrajectoryAnalysis()">
+                        <i class="fas fa-chart-line"></i> Analysis
+                    </button>
+                </div>
             `;
 
+            // Initialize trajectory visualization
+            this.initializeTrajectoryVisualization();
+            this.updateTrajectoryStatistics();
             this.showAlert('✅ Trajectory predictions completed', 'success');
             
         } catch (error) {
             console.error('Trajectory prediction error:', error);
             this.showAlert('Error generating trajectories', 'danger');
+        }
+    }
+
+    initializeTrajectoryVisualization() {
+        const container = document.getElementById('trajectory-container');
+        if (!container || !this.trajectoryData) return;
+
+        // Create trajectory visualization scene
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, container.clientWidth / container.clientHeight, 0.1, 2000);
+        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+        
+        renderer.setSize(container.clientWidth, container.clientHeight);
+        renderer.setClearColor(0x000000, 0.1);
+        container.innerHTML = '';
+        container.appendChild(renderer.domElement);
+
+        // Add Earth
+        const earthGeometry = new THREE.SphereGeometry(6.371, 64, 64);
+        const earthMaterial = new THREE.MeshPhongMaterial({
+            color: 0x6B93D6,
+            transparent: true,
+            opacity: 0.8
+        });
+        const earth = new THREE.Mesh(earthGeometry, earthMaterial);
+        scene.add(earth);
+
+        // Add lighting
+        const ambientLight = new THREE.AmbientLight(0x404040, 0.6);
+        scene.add(ambientLight);
+        const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+        directionalLight.position.set(1, 1, 1);
+        scene.add(directionalLight);
+
+        // Add trajectory paths
+        this.addTrajectoryPaths(scene);
+
+        // Set camera position
+        camera.position.set(0, 0, 50);
+        camera.lookAt(0, 0, 0);
+
+        // Add basic mouse controls
+        let mouseX = 0, mouseY = 0;
+        let isMouseDown = false;
+        
+        renderer.domElement.addEventListener('mousedown', (event) => {
+            isMouseDown = true;
+            mouseX = event.clientX;
+            mouseY = event.clientY;
+        });
+        
+        renderer.domElement.addEventListener('mouseup', () => {
+            isMouseDown = false;
+        });
+        
+        renderer.domElement.addEventListener('mousemove', (event) => {
+            if (isMouseDown) {
+                const deltaX = event.clientX - mouseX;
+                const deltaY = event.clientY - mouseY;
+                
+                camera.position.x = camera.position.x * Math.cos(deltaX * 0.01) - camera.position.z * Math.sin(deltaX * 0.01);
+                camera.position.z = camera.position.x * Math.sin(deltaX * 0.01) + camera.position.z * Math.cos(deltaX * 0.01);
+                camera.position.y += deltaY * 0.1;
+                
+                camera.lookAt(0, 0, 0);
+                
+                mouseX = event.clientX;
+                mouseY = event.clientY;
+            }
+        });
+        
+        renderer.domElement.addEventListener('wheel', (event) => {
+            const scale = event.deltaY > 0 ? 1.1 : 0.9;
+            camera.position.multiplyScalar(scale);
+            camera.lookAt(0, 0, 0);
+        });
+
+        // Store references
+        this.trajectoryScene = { scene, camera, renderer };
+
+        // Animation loop
+        const animate = () => {
+            requestAnimationFrame(animate);
+            earth.rotation.y += 0.005;
+            renderer.render(scene, camera);
+        };
+        animate();
+
+        // Handle resize
+        const handleResize = () => {
+            camera.aspect = container.clientWidth / container.clientHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(container.clientWidth, container.clientHeight);
+        };
+        window.addEventListener('resize', handleResize);
+    }
+
+    addTrajectoryPaths(scene) {
+        if (!this.trajectoryData || (!this.trajectoryData.predictions && !this.trajectoryData.satellite_trajectories)) return;
+
+        const colors = [0xff6b6b, 0x4ecdc4, 0x45b7d1, 0x96ceb4, 0xfeca57, 0xff9ff3, 0x54a0ff];
+        let colorIndex = 0;
+
+        // Use satellite_trajectories if available, otherwise predictions
+        const trajectories = this.trajectoryData.satellite_trajectories || this.trajectoryData.predictions || [];
+
+        trajectories.forEach((prediction, index) => {
+            if (prediction.trajectory && prediction.trajectory.length > 0) {
+                const points = [];
+                prediction.trajectory.forEach(point => {
+                    // Convert from km to scene units (Earth radius = 6.371)
+                    const x = (point.x || 0) / 1000;
+                    const y = (point.y || 0) / 1000; 
+                    const z = (point.z || 0) / 1000;
+                    points.push(new THREE.Vector3(x, y, z));
+                });
+
+                if (points.length > 1) {
+                    const geometry = new THREE.BufferGeometry().setFromPoints(points);
+                    const material = new THREE.LineBasicMaterial({ 
+                        color: colors[colorIndex % colors.length],
+                        transparent: true,
+                        opacity: 0.8
+                    });
+                    
+                    const line = new THREE.Line(geometry, material);
+                    scene.add(line);
+
+                    // Add satellite marker at current position
+                    if (points.length > 0) {
+                        const sphereGeometry = new THREE.SphereGeometry(0.2, 8, 8);
+                        const sphereMaterial = new THREE.MeshBasicMaterial({ 
+                            color: colors[colorIndex % colors.length] 
+                        });
+                        const satellite = new THREE.Mesh(sphereGeometry, sphereMaterial);
+                        satellite.position.copy(points[0]);
+                        scene.add(satellite);
+                    }
+                }
+                colorIndex++;
+            }
+        });
+    }
+
+    showTrajectoriesIn3D() {
+        this.switchTab('visualization');
+        if (this.trajectoryData) {
+            // Add trajectories to main 3D scene
+            this.addTrajectoryPaths(this.scene);
+        }
+    }
+
+    showTrajectoryAnalysis() {
+        if (!this.trajectoryData) return;
+        
+        const modal = document.createElement('div');
+        modal.style.cssText = `
+            position: fixed; top: 0; left: 0; right: 0; bottom: 0; 
+            background: rgba(0,0,0,0.8); z-index: 10000; 
+            display: flex; align-items: center; justify-content: center;
+        `;
+        
+        modal.innerHTML = `
+            <div style="background: var(--bg-secondary); padding: 2rem; border-radius: 12px; max-width: 80vw; max-height: 80vh; overflow-y: auto;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                    <h3>Trajectory Analysis</h3>
+                    <button onclick="this.parentElement.parentElement.parentElement.remove()" style="background: none; border: none; color: var(--text-primary); font-size: 1.5rem; cursor: pointer;">&times;</button>
+                </div>
+                <div id="trajectory-analysis-content"></div>
+            </div>
+        `;
+        
+        document.body.appendChild(modal);
+        this.renderTrajectoryAnalysis(document.getElementById('trajectory-analysis-content'));
+    }
+
+    renderTrajectoryAnalysis(container) {
+        if (!this.trajectoryData || !container) return;
+
+        // Use satellite_trajectories if available, otherwise predictions  
+        const predictions = this.trajectoryData.satellite_trajectories || this.trajectoryData.predictions || [];
+        const stats = this.calculateTrajectoryStats(predictions);
+
+        container.innerHTML = `
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 2rem;">
+                <div style="text-align: center; padding: 1rem; background: rgba(0, 123, 255, 0.1); border-radius: 8px;">
+                    <div style="font-size: 1.5rem; font-weight: 700; color: var(--primary-color);">${stats.totalTrajectories}</div>
+                    <div style="font-size: 0.9rem;">Total Trajectories</div>
+                </div>
+                <div style="text-align: center; padding: 1rem; background: rgba(220, 53, 69, 0.1); border-radius: 8px;">
+                    <div style="font-size: 1.5rem; font-weight: 700; color: var(--danger-color);">${stats.riskySatellites}</div>
+                    <div style="font-size: 0.9rem;">High-Risk Objects</div>
+                </div>
+                <div style="text-align: center; padding: 1rem; background: rgba(40, 167, 69, 0.1); border-radius: 8px;">
+                    <div style="font-size: 1.5rem; font-weight: 700; color: var(--success-color);">${stats.avgAltitude.toFixed(0)} km</div>
+                    <div style="font-size: 0.9rem;">Avg Altitude</div>
+                </div>
+                <div style="text-align: center; padding: 1rem; background: rgba(255, 193, 7, 0.1); border-radius: 8px;">
+                    <div style="font-size: 1.5rem; font-weight: 700; color: var(--warning-color);">${stats.avgVelocity.toFixed(1)} km/s</div>
+                    <div style="font-size: 0.9rem;">Avg Velocity</div>
+                </div>
+            </div>
+            <div style="background: rgba(255, 255, 255, 0.05); border-radius: 8px; padding: 1rem;">
+                <h4>Trajectory Details</h4>
+                <div style="max-height: 300px; overflow-y: auto;">
+                    ${predictions.slice(0, 10).map((pred, i) => `
+                        <div style="padding: 0.5rem; border-bottom: 1px solid rgba(255,255,255,0.1); display: flex; justify-content: space-between;">
+                            <span>Object ${i + 1}</span>
+                            <span style="color: ${pred.risk_level === 'HIGH' ? 'var(--danger-color)' : pred.risk_level === 'MEDIUM' ? 'var(--warning-color)' : 'var(--success-color)'}">${pred.risk_level || 'LOW'}</span>
+                        </div>
+                    `).join('')}
+                </div>
+            </div>
+        `;
+    }
+
+    calculateTrajectoryStats(predictions) {
+        let totalAltitude = 0;
+        let totalVelocity = 0;
+        let riskySatellites = 0;
+        let validCount = 0;
+
+        predictions.forEach(pred => {
+            if (pred.trajectory && pred.trajectory.length > 0) {
+                const firstPoint = pred.trajectory[0];
+                if (firstPoint.altitude) {
+                    totalAltitude += firstPoint.altitude;
+                    validCount++;
+                }
+                if (firstPoint.velocity) {
+                    totalVelocity += firstPoint.velocity;
+                }
+                if (pred.risk_level === 'HIGH' || pred.risk_level === 'CRITICAL') {
+                    riskySatellites++;
+                }
+            }
+        });
+
+        return {
+            totalTrajectories: predictions.length,
+            riskySatellites,
+            avgAltitude: validCount > 0 ? totalAltitude / validCount : 0,
+            avgVelocity: validCount > 0 ? totalVelocity / validCount : 0
+        };
+    }
+
+    updateTrajectoryStatistics() {
+        if (!this.trajectoryData) return;
+
+        // Use satellite_trajectories if available, otherwise predictions
+        const predictions = this.trajectoryData.satellite_trajectories || this.trajectoryData.predictions || [];
+        const stats = this.calculateTrajectoryStats(predictions);
+        
+        // Update trajectory statistics panel
+        const trajectoryStats = document.getElementById('trajectory-stats');
+        if (trajectoryStats) {
+            trajectoryStats.innerHTML = `
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+                    <div style="text-align: center; padding: 1rem; background: rgba(0, 123, 255, 0.1); border-radius: 8px;">
+                        <div style="font-size: 1.5rem; font-weight: 700; color: var(--primary-color);">${stats.totalTrajectories}</div>
+                        <div style="font-size: 0.9rem;">Generated</div>
+                    </div>
+                    <div style="text-align: center; padding: 1rem; background: rgba(220, 53, 69, 0.1); border-radius: 8px;">
+                        <div style="font-size: 1.5rem; font-weight: 700; color: var(--danger-color);">${stats.riskySatellites}</div>
+                        <div style="font-size: 0.9rem;">High Risk</div>
+                    </div>
+                </div>
+                <div style="padding: 1rem; background: rgba(255, 255, 255, 0.05); border-radius: 8px;">
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+                        <span>Avg Altitude:</span>
+                        <span style="color: var(--success-color);">${stats.avgAltitude.toFixed(0)} km</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+                        <span>Avg Velocity:</span>
+                        <span style="color: var(--success-color);">${stats.avgVelocity.toFixed(1)} km/s</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between;">
+                        <span>Prediction Horizon:</span>
+                        <span style="color: var(--info-color);">${this.trajectoryData.prediction_horizon || 24}h</span>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Update collision risk analysis
+        const collisionRisk = document.getElementById('collision-risk-analysis');
+        if (collisionRisk) {
+            const riskLevel = stats.riskySatellites > 5 ? 'HIGH' : stats.riskySatellites > 2 ? 'MEDIUM' : 'LOW';
+            const riskColor = riskLevel === 'HIGH' ? 'var(--danger-color)' : 
+                             riskLevel === 'MEDIUM' ? 'var(--warning-color)' : 'var(--success-color)';
+
+            collisionRisk.innerHTML = `
+                <div style="text-align: center; margin-bottom: 1rem;">
+                    <div style="font-size: 2rem; font-weight: 700; color: ${riskColor};">${riskLevel}</div>
+                    <div style="font-size: 0.9rem; color: var(--text-secondary);">Overall Risk Level</div>
+                </div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+                    <div style="text-align: center; padding: 1rem; background: rgba(255, 193, 7, 0.1); border-radius: 8px;">
+                        <div style="font-size: 1.2rem; font-weight: 700; color: var(--warning-color);">${Math.round((stats.riskySatellites / stats.totalTrajectories) * 100)}%</div>
+                        <div style="font-size: 0.8rem;">Risk Percentage</div>
+                    </div>
+                    <div style="text-align: center; padding: 1rem; background: rgba(23, 162, 184, 0.1); border-radius: 8px;">
+                        <div style="font-size: 1.2rem; font-weight: 700; color: var(--info-color);">${this.trajectoryData.prediction_horizon || 24}</div>
+                        <div style="font-size: 0.8rem;">Hours Predicted</div>
+                    </div>
+                </div>
+                <div style="background: rgba(255, 255, 255, 0.05); border-radius: 8px; padding: 1rem;">
+                    <div style="margin-bottom: 0.5rem;"><strong>Risk Assessment:</strong></div>
+                    <div style="font-size: 0.9rem; color: var(--text-secondary);">
+                        ${riskLevel === 'HIGH' ? 
+                          'Multiple high-risk objects detected. Enhanced monitoring recommended.' :
+                          riskLevel === 'MEDIUM' ?
+                          'Some elevated risk objects identified. Continued observation advised.' :
+                          'Risk levels are within acceptable parameters. Normal monitoring sufficient.'
+                        }
+                    </div>
+                </div>
+            `;
         }
     }
 
@@ -698,36 +1035,151 @@ class NovaGenDashboard {
 
     resetCamera() {
         if (this.camera) {
-            this.camera.position.set(15000, 10000, 15000);
+            this.camera.position.set(0, 0, 50);
             this.camera.lookAt(0, 0, 0);
         }
     }
 
-    toggleSatellites() {
-        this.satellites.forEach(sat => {
-            sat.visible = !sat.visible;
-        });
-        this.showAlert('Satellites ' + (this.satellites[0]?.visible ? 'shown' : 'hidden'), 'info');
+    toggleFullscreen() {
+        const container = document.getElementById('visualization-container');
+        if (!document.fullscreenElement) {
+            container.requestFullscreen();
+        } else {
+            document.exitFullscreen();
+        }
     }
 
-    toggleDebris() {
-        this.debrisObjects.forEach(debris => {
-            debris.visible = !debris.visible;
-        });
-        this.showAlert('Debris ' + (this.debrisObjects[0]?.visible ? 'shown' : 'hidden'), 'info');
+    toggleLabels() {
+        // Implementation for toggling satellite labels
+        this.showLabels = !this.showLabels;
+        // Update labels visibility in 3D scene
     }
 
-    toggleTrajectories() {
-        this.trajectoryLines.forEach(line => {
-            line.visible = !line.visible;
-        });
-        this.showAlert('Trajectories ' + (this.trajectoryLines[0]?.visible ? 'shown' : 'hidden'), 'info');
+    updateSatelliteSize(size) {
+        this.satelliteSize = parseFloat(size);
+        // Update satellite sizes in 3D scene
+        if (this.scene) {
+            this.scene.traverse((child) => {
+                if (child.userData && child.userData.type === 'satellite') {
+                    child.scale.setScalar(this.satelliteSize);
+                }
+            });
+        }
     }
 
+    updateEarthRotation(speed) {
+        this.earthRotationSpeed = parseFloat(speed);
+    }
+
+    updateViewDistance(distance) {
+        if (this.camera) {
+            const dist = parseFloat(distance);
+            this.camera.position.setLength(dist);
+        }
+    }
+
+    resetSettings() {
+        document.getElementById('satellite-size').value = 1;
+        document.getElementById('earth-rotation').value = 0.005;
+        document.getElementById('view-distance').value = 50;
+        
+        this.updateSatelliteSize(1);
+        this.updateEarthRotation(0.005);
+        this.updateViewDistance(50);
+    }
+
+    updateLiveStatistics() {
+        if (!this.satelliteData) return;
+
+        const stats = {
+            totalObjects: this.satelliteData.length,
+            activeSats: this.satelliteData.filter(sat => !sat.is_debris).length,
+            debris: this.satelliteData.filter(sat => sat.is_debris).length,
+            highRisk: this.satelliteData.filter(sat => sat.debris_probability > 0.7).length,
+            trajectories: this.trajectoryData ? this.trajectoryData.trajectories_generated : 0,
+            fps: Math.round(1000 / (performance.now() - this.lastFrameTime || 16))
+        };
+
+        document.getElementById('stat-total-objects').textContent = stats.totalObjects;
+        document.getElementById('stat-active-sats').textContent = stats.activeSats;
+        document.getElementById('stat-debris').textContent = stats.debris;
+        document.getElementById('stat-high-risk').textContent = stats.highRisk;
+        document.getElementById('stat-trajectories').textContent = stats.trajectories;
+        document.getElementById('stat-fps').textContent = stats.fps;
+
+        this.lastFrameTime = performance.now();
+    }
+
+    // Add statistics update to animation loop
+    animate() {
+        if (!this.renderer || !this.scene || !this.camera) return;
+        
+        requestAnimationFrame(() => this.animate());
+        
+        // Update controls
+        if (this.controls) {
+            this.controls.update();
+        }
+        
+        // Rotate Earth
+        if (this.earth && this.earthRotationSpeed) {
+            this.earth.rotation.y += this.earthRotationSpeed;
+        }
+        
+        // Update statistics
+        this.updateLiveStatistics();
+        
+        // Render scene
+        this.renderer.render(this.scene, this.camera);
+    }
+
+    // Enhanced trajectory clearing
     clearTrajectories() {
-        this.trajectoryLines.forEach(line => this.scene.remove(line));
-        this.trajectoryLines = [];
-        this.showAlert('Trajectories cleared', 'info');
+        const trajectoryContainer = document.getElementById('trajectory-container');
+        const trajectoryStats = document.getElementById('trajectory-stats');
+        const collisionRisk = document.getElementById('collision-risk-analysis');
+        
+        if (trajectoryContainer) {
+            trajectoryContainer.innerHTML = `
+                <div style="display: flex; align-items: center; justify-content: center; height: 100%; color: var(--text-secondary); flex-direction: column; text-align: center;">
+                    <i class="fas fa-satellite-dish" style="font-size: 3rem; margin-bottom: 1rem; opacity: 0.5;"></i>
+                    <h3>Orbital Trajectory Visualization</h3>
+                    <p>Click "Generate New" to predict and visualize satellite trajectories in 3D</p>
+                </div>
+            `;
+        }
+        
+        if (trajectoryStats) {
+            trajectoryStats.innerHTML = `
+                <div style="text-align: center; padding: 2rem; color: var(--text-secondary);">
+                    Generate trajectories to view statistics
+                </div>
+            `;
+        }
+        
+        if (collisionRisk) {
+            collisionRisk.innerHTML = `
+                <div style="text-align: center; padding: 2rem; color: var(--text-secondary);">
+                    Generate trajectories to analyze collision risks
+                </div>
+            `;
+        }
+        
+        // Clear trajectory data
+        this.trajectoryData = null;
+        
+        // Remove trajectories from 3D scene
+        if (this.scene) {
+            const trajectoriesToRemove = [];
+            this.scene.traverse((child) => {
+                if (child.userData && child.userData.type === 'trajectory') {
+                    trajectoriesToRemove.push(child);
+                }
+            });
+            trajectoriesToRemove.forEach(traj => this.scene.remove(traj));
+        }
+        
+        this.showAlert('🧹 Trajectories cleared', 'info');
     }
 
     async loadCacheStatus() {
@@ -1024,5 +1476,50 @@ function viewCacheFiles() {
 function loadHighRiskSatellites() {
     if (window.dashboard) {
         window.dashboard.loadHighRiskSatellites();
+    }
+}
+
+function toggleSatellites() {
+    if (window.dashboard && window.dashboard.scene) {
+        window.dashboard.scene.traverse((child) => {
+            if (child.userData && child.userData.type === 'satellite') {
+                child.visible = !child.visible;
+            }
+        });
+        window.dashboard.showAlert('Satellites visibility toggled', 'info');
+    }
+}
+
+function toggleDebris() {
+    if (window.dashboard && window.dashboard.scene) {
+        window.dashboard.scene.traverse((child) => {
+            if (child.userData && child.userData.type === 'debris') {
+                child.visible = !child.visible;
+            }
+        });
+        window.dashboard.showAlert('Debris visibility toggled', 'info');
+    }
+}
+
+function toggleTrajectories() {
+    if (window.dashboard && window.dashboard.scene) {
+        window.dashboard.scene.traverse((child) => {
+            if (child.userData && child.userData.type === 'trajectory') {
+                child.visible = !child.visible;
+            }
+        });
+        window.dashboard.showAlert('Trajectories visibility toggled', 'info');
+    }
+}
+
+function clearTrajectories() {
+    if (window.dashboard) {
+        window.dashboard.clearTrajectories();
+    }
+}
+
+function resetCamera() {
+    if (window.dashboard) {
+        window.dashboard.resetCamera();
     }
 }

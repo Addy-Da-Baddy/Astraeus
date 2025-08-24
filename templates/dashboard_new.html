@@ -6,6 +6,7 @@
     <title>NovaGen - Orbital Collision Prediction System</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://threejs.org/examples/js/controls/OrbitControls.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/chart.js/3.9.1/chart.min.js"></script>
     <style>
         * {
@@ -769,28 +770,111 @@
 
             <!-- 3D Visualization Tab -->
             <div id="visualization-tab" class="tab-content">
-                <h2>3D Orbital Visualization</h2>
-                <div class="card">
-                    <div class="card-header">
-                        <h3 class="card-title">Earth & Satellite View</h3>
-                        <div>
-                            <button class="btn btn-outline" onclick="resetCamera()">
-                                <i class="fas fa-home"></i>
-                                Reset View
+                <h2>🌍 3D Orbital Visualization</h2>
+                <div class="grid grid-4">
+                    <!-- Main 3D Viewer -->
+                    <div class="card" style="grid-column: span 3;">
+                        <div class="card-header">
+                            <h3 class="card-title">Earth & Satellite View</h3>
+                            <div>
+                                <button class="btn btn-outline" onclick="resetCamera()">
+                                    <i class="fas fa-home"></i>
+                                    Reset View
+                                </button>
+                                <button class="btn btn-primary" onclick="window.dashboard.toggleFullscreen()">
+                                    <i class="fas fa-expand"></i>
+                                    Fullscreen
+                                </button>
+                            </div>
+                        </div>
+                        <div class="viz-container" id="visualization-container" style="height: 600px;">
+                            <div class="viz-controls" style="position: absolute; top: 10px; left: 10px; z-index: 100; display: flex; gap: 0.5rem;">
+                                <button class="btn btn-primary" onclick="toggleSatellites()" title="Toggle Satellites">
+                                    <i class="fas fa-satellite"></i>
+                                </button>
+                                <button class="btn btn-warning" onclick="toggleDebris()" title="Toggle Debris">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                                <button class="btn btn-success" onclick="toggleTrajectories()" title="Toggle Trajectories">
+                                    <i class="fas fa-route"></i>
+                                </button>
+                                <button class="btn btn-info" onclick="window.dashboard.toggleLabels()" title="Toggle Labels">
+                                    <i class="fas fa-tags"></i>
+                                </button>
+                            </div>
+                            <div class="viz-legend" style="position: absolute; bottom: 10px; left: 10px; background: rgba(0,0,0,0.7); padding: 1rem; border-radius: 8px; z-index: 100;">
+                                <div style="font-size: 0.8rem; margin-bottom: 0.5rem;"><strong>Legend:</strong></div>
+                                <div style="font-size: 0.7rem; display: flex; gap: 1rem;">
+                                    <span><span style="color: #4ecdc4;">●</span> Active Satellites</span>
+                                    <span><span style="color: #ff6b6b;">●</span> Debris</span>
+                                    <span><span style="color: #45b7d1;">─</span> Trajectories</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Visualization Controls -->
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 class="card-title">🎛️ Controls</h3>
+                        </div>
+                        <div style="padding: 1rem;">
+                            <div style="margin-bottom: 1rem;">
+                                <label style="display: block; margin-bottom: 0.5rem; font-size: 0.9rem;">Satellite Size</label>
+                                <input type="range" id="satellite-size" min="0.1" max="2" step="0.1" value="1" 
+                                       onchange="window.dashboard.updateSatelliteSize(this.value)"
+                                       style="width: 100%;">
+                            </div>
+                            <div style="margin-bottom: 1rem;">
+                                <label style="display: block; margin-bottom: 0.5rem; font-size: 0.9rem;">Earth Rotation</label>
+                                <input type="range" id="earth-rotation" min="0" max="0.02" step="0.001" value="0.005" 
+                                       onchange="window.dashboard.updateEarthRotation(this.value)"
+                                       style="width: 100%;">
+                            </div>
+                            <div style="margin-bottom: 1rem;">
+                                <label style="display: block; margin-bottom: 0.5rem; font-size: 0.9rem;">View Distance</label>
+                                <input type="range" id="view-distance" min="20" max="200" step="5" value="50" 
+                                       onchange="window.dashboard.updateViewDistance(this.value)"
+                                       style="width: 100%;">
+                            </div>
+                            <button class="btn btn-outline" onclick="window.dashboard.resetSettings()" style="width: 100%;">
+                                <i class="fas fa-undo"></i> Reset Settings
                             </button>
                         </div>
                     </div>
-                    <div class="viz-container" id="visualization-container">
-                        <div class="viz-controls">
-                            <button class="btn btn-primary" onclick="toggleSatellites()">
-                                <i class="fas fa-satellite"></i>
-                            </button>
-                            <button class="btn btn-warning" onclick="toggleDebris()">
-                                <i class="fas fa-trash"></i>
-                            </button>
-                            <button class="btn btn-success" onclick="toggleTrajectories()">
-                                <i class="fas fa-route"></i>
-                            </button>
+
+                    <!-- Live Statistics -->
+                    <div class="card" style="grid-column: span 4;">
+                        <div class="card-header">
+                            <h3 class="card-title">📈 Live Statistics</h3>
+                        </div>
+                        <div id="live-statistics" style="padding: 1rem;">
+                            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1rem;">
+                                <div style="text-align: center; padding: 1rem; background: rgba(0, 123, 255, 0.1); border-radius: 8px;">
+                                    <div id="stat-total-objects" style="font-size: 1.5rem; font-weight: 700; color: var(--primary-color);">-</div>
+                                    <div style="font-size: 0.8rem;">Total Objects</div>
+                                </div>
+                                <div style="text-align: center; padding: 1rem; background: rgba(40, 167, 69, 0.1); border-radius: 8px;">
+                                    <div id="stat-active-sats" style="font-size: 1.5rem; font-weight: 700; color: var(--success-color);">-</div>
+                                    <div style="font-size: 0.8rem;">Active Satellites</div>
+                                </div>
+                                <div style="text-align: center; padding: 1rem; background: rgba(220, 53, 69, 0.1); border-radius: 8px;">
+                                    <div id="stat-debris" style="font-size: 1.5rem; font-weight: 700; color: var(--danger-color);">-</div>
+                                    <div style="font-size: 0.8rem;">Debris Objects</div>
+                                </div>
+                                <div style="text-align: center; padding: 1rem; background: rgba(255, 193, 7, 0.1); border-radius: 8px;">
+                                    <div id="stat-high-risk" style="font-size: 1.5rem; font-weight: 700; color: var(--warning-color);">-</div>
+                                    <div style="font-size: 0.8rem;">High Risk</div>
+                                </div>
+                                <div style="text-align: center; padding: 1rem; background: rgba(124, 58, 237, 0.1); border-radius: 8px;">
+                                    <div id="stat-trajectories" style="font-size: 1.5rem; font-weight: 700; color: var(--accent-color);">-</div>
+                                    <div style="font-size: 0.8rem;">Trajectories</div>
+                                </div>
+                                <div style="text-align: center; padding: 1rem; background: rgba(23, 162, 184, 0.1); border-radius: 8px;">
+                                    <div id="stat-fps" style="font-size: 1.5rem; font-weight: 700; color: var(--info-color);">-</div>
+                                    <div style="font-size: 0.8rem;">FPS</div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -887,24 +971,57 @@
 
             <!-- Trajectories Tab -->
             <div id="trajectories-tab" class="tab-content">
-                <h2>Orbital Trajectories</h2>
-                <div class="card">
-                    <div class="card-header">
-                        <h3 class="card-title">Trajectory Visualization</h3>
-                        <div>
-                            <button class="btn btn-success" onclick="runTrajectoryPrediction()">
-                                <i class="fas fa-rocket"></i>
-                                Generate New
-                            </button>
-                            <button class="btn btn-outline" onclick="clearTrajectories()">
-                                <i class="fas fa-eraser"></i>
-                                Clear All
-                            </button>
+                <h2>🚀 Orbital Trajectories</h2>
+                <div class="grid grid-2">
+                    <!-- Trajectory Visualization -->
+                    <div class="card" style="grid-column: span 2;">
+                        <div class="card-header">
+                            <h3 class="card-title">3D Trajectory Visualization</h3>
+                            <div>
+                                <button class="btn btn-success" onclick="runTrajectoryPrediction()">
+                                    <i class="fas fa-rocket"></i>
+                                    Generate New
+                                </button>
+                                <button class="btn btn-outline" onclick="clearTrajectories()">
+                                    <i class="fas fa-eraser"></i>
+                                    Clear All
+                                </button>
+                                <button class="btn btn-primary" onclick="window.dashboard.showTrajectoryAnalysis()">
+                                    <i class="fas fa-chart-line"></i>
+                                    Analysis
+                                </button>
+                            </div>
+                        </div>
+                        <div class="viz-container" id="trajectory-container" style="height: 500px;">
+                            <div style="display: flex; align-items: center; justify-content: center; height: 100%; color: var(--text-secondary); flex-direction: column; text-align: center;">
+                                <i class="fas fa-satellite-dish" style="font-size: 3rem; margin-bottom: 1rem; opacity: 0.5;"></i>
+                                <h3>Orbital Trajectory Visualization</h3>
+                                <p>Click "Generate New" to predict and visualize satellite trajectories in 3D</p>
+                            </div>
                         </div>
                     </div>
-                    <div class="viz-container" id="trajectory-container">
-                        <div style="display: flex; align-items: center; justify-content: center; height: 100%; color: var(--text-secondary);">
-                            Switch to 3D Visualization tab or run trajectory prediction to see orbital paths
+
+                    <!-- Trajectory Statistics -->
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 class="card-title">📊 Trajectory Statistics</h3>
+                        </div>
+                        <div id="trajectory-stats">
+                            <div style="text-align: center; padding: 2rem; color: var(--text-secondary);">
+                                Generate trajectories to view statistics
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Risk Analysis -->
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 class="card-title">⚠️ Collision Risk Analysis</h3>
+                        </div>
+                        <div id="collision-risk-analysis">
+                            <div style="text-align: center; padding: 2rem; color: var(--text-secondary);">
+                                Generate trajectories to analyze collision risks
+                            </div>
                         </div>
                     </div>
                 </div>

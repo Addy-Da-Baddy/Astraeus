@@ -765,7 +765,8 @@ def api_trajectory_bulk():
                 'success': True,
                 'trajectories_generated': trajectories_generated,
                 'prediction_horizon': 3.3,  # hours (20 points * 10 minutes)
-                'satellite_trajectories': satellite_trajectories,
+                'predictions': satellite_trajectories,  # Use 'predictions' to match frontend
+                'satellite_trajectories': satellite_trajectories,  # Keep both for compatibility
                 'models_used': list(trajectory_results.keys()),
                 'timestamp': datetime.now().isoformat()
             })
