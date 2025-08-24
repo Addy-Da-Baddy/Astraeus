@@ -1,0 +1,1286 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NovaGen - Orbital Collision Prediction System</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/chart.js/3.9.1/chart.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary-color: #007bff;
+            --secondary-color: #6c757d;
+            --success-color: #28a745;
+            --danger-color: #dc3545;
+            --warning-color: #ffc107;
+            --info-color: #17a2b8;
+            --dark-color: #343a40;
+            --light-color: #f8f9fa;
+            --bg-primary: #0d1117;
+            --bg-secondary: #161b22;
+            --bg-tertiary: #21262d;
+            --text-primary: #f0f6fc;
+            --text-secondary: #8b949e;
+            --border-color: #30363d;
+            --accent-color: #7c3aed;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #0c0c0c 0%, #1a1a2e 50%, #16213e 100%);
+            color: var(--text-primary);
+            overflow-x: hidden;
+            min-height: 100vh;
+        }
+
+        /* Header */
+        .header {
+            background: rgba(13, 17, 23, 0.95);
+            backdrop-filter: blur(20px);
+            border-bottom: 1px solid var(--border-color);
+            padding: 1rem 2rem;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 1000;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .logo h1 {
+            background: linear-gradient(45deg, #007bff, #7c3aed);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            font-size: 1.8rem;
+            font-weight: 700;
+        }
+
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 1rem;
+            background: rgba(40, 167, 69, 0.1);
+            border: 1px solid var(--success-color);
+            border-radius: 20px;
+            font-size: 0.9rem;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            background: var(--success-color);
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+
+        /* Main Layout */
+        .main-container {
+            margin-top: 80px;
+            display: flex;
+            height: calc(100vh - 80px);
+        }
+
+        /* Sidebar Navigation */
+        .sidebar {
+            width: 280px;
+            background: rgba(22, 27, 34, 0.95);
+            backdrop-filter: blur(20px);
+            border-right: 1px solid var(--border-color);
+            padding: 2rem 1rem;
+            overflow-y: auto;
+        }
+
+        .nav-section {
+            margin-bottom: 2rem;
+        }
+
+        .nav-section h3 {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 1rem;
+            padding-left: 1rem;
+        }
+
+        .nav-item {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            padding: 1rem;
+            margin-bottom: 0.5rem;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            color: var(--text-secondary);
+            text-decoration: none;
+        }
+
+        .nav-item:hover {
+            background: rgba(255, 255, 255, 0.05);
+            color: var(--text-primary);
+            transform: translateX(5px);
+        }
+
+        .nav-item.active {
+            background: linear-gradient(45deg, rgba(0, 123, 255, 0.2), rgba(124, 58, 237, 0.2));
+            color: var(--primary-color);
+            border: 1px solid rgba(0, 123, 255, 0.3);
+        }
+
+        .nav-item i {
+            width: 20px;
+            font-size: 1.1rem;
+        }
+
+        /* Content Area */
+        .content {
+            flex: 1;
+            padding: 2rem;
+            overflow-y: auto;
+        }
+
+        .tab-content {
+            display: none;
+            animation: fadeIn 0.3s ease;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Cards */
+        .card {
+            background: rgba(33, 38, 45, 0.8);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            transition: transform 0.3s ease;
+        }
+
+        .card:hover {
+            transform: translateY(-2px);
+            border-color: rgba(0, 123, 255, 0.5);
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .card-title {
+            font-size: 1.2rem;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        /* Buttons */
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            white-space: nowrap;
+        }
+
+        .btn-primary {
+            background: linear-gradient(45deg, var(--primary-color), #0056b3);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: linear-gradient(45deg, #0056b3, var(--primary-color));
+            transform: translateY(-2px);
+            box-shadow: 0 4px 20px rgba(0, 123, 255, 0.4);
+        }
+
+        .btn-success {
+            background: linear-gradient(45deg, var(--success-color), #1e7e34);
+            color: white;
+        }
+
+        .btn-success:hover {
+            background: linear-gradient(45deg, #1e7e34, var(--success-color));
+            transform: translateY(-2px);
+            box-shadow: 0 4px 20px rgba(40, 167, 69, 0.4);
+        }
+
+        .btn-warning {
+            background: linear-gradient(45deg, var(--warning-color), #e0a800);
+            color: #212529;
+        }
+
+        .btn-danger {
+            background: linear-gradient(45deg, var(--danger-color), #c82333);
+            color: white;
+        }
+
+        .btn-outline {
+            background: transparent;
+            border: 1px solid var(--primary-color);
+            color: var(--primary-color);
+        }
+
+        .btn-outline:hover {
+            background: var(--primary-color);
+            color: white;
+        }
+
+        /* Grid Layouts */
+        .grid {
+            display: grid;
+            gap: 1.5rem;
+        }
+
+        .grid-2 {
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+        }
+
+        .grid-3 {
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        }
+
+        .grid-4 {
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        }
+
+        /* 3D Visualization */
+        .viz-container {
+            position: relative;
+            height: 600px;
+            border-radius: 12px;
+            overflow: hidden;
+            border: 1px solid var(--border-color);
+            background: #000;
+        }
+
+        .viz-controls {
+            position: absolute;
+            top: 1rem;
+            right: 1rem;
+            z-index: 10;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .viz-controls .btn {
+            padding: 0.5rem;
+            font-size: 0.8rem;
+            min-width: 40px;
+        }
+
+        /* Stats Cards */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+
+        .stat-card {
+            background: rgba(33, 38, 45, 0.8);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 1.5rem;
+            text-align: center;
+            transition: all 0.3s ease;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+        }
+
+        .stat-value {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+        }
+
+        .stat-label {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .stat-trend {
+            margin-top: 0.5rem;
+            font-size: 0.8rem;
+        }
+
+        /* Satellite List */
+        .satellite-list {
+            max-height: 500px;
+            overflow-y: auto;
+            padding-right: 0.5rem;
+        }
+
+        .satellite-item {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 1rem;
+            margin-bottom: 0.75rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .satellite-item:hover {
+            background: rgba(255, 255, 255, 0.1);
+            border-color: var(--primary-color);
+            transform: translateX(5px);
+        }
+
+        .satellite-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.5rem;
+        }
+
+        .satellite-id {
+            font-weight: 600;
+            color: var(--primary-color);
+        }
+
+        .risk-badge {
+            padding: 0.25rem 0.75rem;
+            border-radius: 12px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .risk-critical {
+            background: rgba(220, 53, 69, 0.2);
+            color: var(--danger-color);
+            border: 1px solid var(--danger-color);
+        }
+
+        .risk-high {
+            background: rgba(255, 193, 7, 0.2);
+            color: var(--warning-color);
+            border: 1px solid var(--warning-color);
+        }
+
+        .risk-medium {
+            background: rgba(23, 162, 184, 0.2);
+            color: var(--info-color);
+            border: 1px solid var(--info-color);
+        }
+
+        .risk-low {
+            background: rgba(40, 167, 69, 0.2);
+            color: var(--success-color);
+            border: 1px solid var(--success-color);
+        }
+
+        /* Form Controls */
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+
+        .form-label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+            color: var(--text-primary);
+        }
+
+        .form-control {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            background: rgba(33, 38, 45, 0.8);
+            color: var(--text-primary);
+            font-size: 0.9rem;
+            transition: border-color 0.3s ease;
+        }
+
+        .form-control:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.1);
+        }
+
+        /* Modals */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(10px);
+            z-index: 2000;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .modal.show {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 1;
+        }
+
+        .modal-content {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 2rem;
+            max-width: 800px;
+            max-height: 90vh;
+            overflow-y: auto;
+            width: 90%;
+            position: relative;
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .modal-title {
+            font-size: 1.5rem;
+            font-weight: 600;
+        }
+
+        .close-btn {
+            background: none;
+            border: none;
+            color: var(--text-secondary);
+            font-size: 1.5rem;
+            cursor: pointer;
+            padding: 0.5rem;
+            border-radius: 4px;
+            transition: all 0.3s ease;
+        }
+
+        .close-btn:hover {
+            background: rgba(255, 255, 255, 0.1);
+            color: var(--text-primary);
+        }
+
+        /* Alerts */
+        .alert {
+            position: fixed;
+            top: 100px;
+            right: 2rem;
+            padding: 1rem 1.5rem;
+            border-radius: 8px;
+            font-weight: 500;
+            z-index: 3000;
+            opacity: 0;
+            transform: translateX(100%);
+            transition: all 0.3s ease;
+            max-width: 400px;
+        }
+
+        .alert.show {
+            opacity: 1;
+            transform: translateX(0);
+        }
+
+        .alert-success {
+            background: rgba(40, 167, 69, 0.9);
+            border: 1px solid var(--success-color);
+            color: white;
+        }
+
+        .alert-danger {
+            background: rgba(220, 53, 69, 0.9);
+            border: 1px solid var(--danger-color);
+            color: white;
+        }
+
+        .alert-info {
+            background: rgba(23, 162, 184, 0.9);
+            border: 1px solid var(--info-color);
+            color: white;
+        }
+
+        .alert-warning {
+            background: rgba(255, 193, 7, 0.9);
+            border: 1px solid var(--warning-color);
+            color: #212529;
+        }
+
+        /* Loading States */
+        .loading {
+            opacity: 0.6;
+            pointer-events: none;
+            position: relative;
+        }
+
+        .loading::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 40px;
+            height: 40px;
+            margin: -20px 0 0 -20px;
+            border: 3px solid var(--border-color);
+            border-radius: 50%;
+            border-top-color: var(--primary-color);
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Responsive Design */
+        @media (max-width: 1024px) {
+            .sidebar {
+                width: 240px;
+            }
+            
+            .grid-4 {
+                grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            }
+        }
+
+        @media (max-width: 768px) {
+            .header {
+                padding: 1rem;
+            }
+            
+            .logo h1 {
+                font-size: 1.5rem;
+            }
+            
+            .sidebar {
+                position: fixed;
+                left: -280px;
+                top: 80px;
+                height: calc(100vh - 80px);
+                z-index: 1500;
+                transition: left 0.3s ease;
+            }
+            
+            .sidebar.open {
+                left: 0;
+            }
+            
+            .content {
+                padding: 1rem;
+            }
+            
+            .grid-2, .grid-3, .grid-4 {
+                grid-template-columns: 1fr;
+            }
+            
+            .modal-content {
+                width: 95%;
+                padding: 1.5rem;
+            }
+        }
+
+        /* Scrollbar Styling */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: var(--bg-secondary);
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--border-color);
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--text-secondary);
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <div class="header">
+        <div class="logo">
+            <i class="fas fa-satellite" style="color: var(--primary-color); font-size: 2rem;"></i>
+            <h1>NovaGen</h1>
+        </div>
+        <div class="status-indicator">
+            <div class="status-dot"></div>
+            <span>System Online</span>
+        </div>
+    </div>
+
+    <!-- Main Container -->
+    <div class="main-container">
+        <!-- Sidebar Navigation -->
+        <div class="sidebar">
+            <div class="nav-section">
+                <h3>Dashboard</h3>
+                <a href="#" class="nav-item active" onclick="switchToTab('overview')">
+                    <i class="fas fa-tachometer-alt"></i>
+                    <span>Overview</span>
+                </a>
+                <a href="#" class="nav-item" onclick="switchToTab('visualization')">
+                    <i class="fas fa-globe"></i>
+                    <span>3D Visualization</span>
+                </a>
+                <a href="#" class="nav-item" onclick="switchToTab('predictions')">
+                    <i class="fas fa-chart-line"></i>
+                    <span>Predictions</span>
+                </a>
+            </div>
+
+            <div class="nav-section">
+                <h3>Analysis</h3>
+                <a href="#" class="nav-item" onclick="switchToTab('satellites')">
+                    <i class="fas fa-satellite"></i>
+                    <span>Satellite Selection</span>
+                </a>
+                <a href="#" class="nav-item" onclick="switchToTab('trajectories')">
+                    <i class="fas fa-route"></i>
+                    <span>Trajectories</span>
+                </a>
+                <a href="#" class="nav-item" onclick="switchToTab('alerts')">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <span>Risk Alerts</span>
+                </a>
+            </div>
+
+            <div class="nav-section">
+                <h3>Tools</h3>
+                <a href="#" class="nav-item" onclick="switchToTab('settings')">
+                    <i class="fas fa-cog"></i>
+                    <span>Settings</span>
+                </a>
+                <a href="#" class="nav-item" onclick="switchToTab('help')">
+                    <i class="fas fa-question-circle"></i>
+                    <span>Help</span>
+                </a>
+            </div>
+        </div>
+
+        <!-- Content Area -->
+        <div class="content">
+            <!-- Overview Tab -->
+            <div id="overview-tab" class="tab-content active">
+                <h2>System Overview</h2>
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-value" style="color: var(--primary-color);" id="total-objects">-</div>
+                        <div class="stat-label">Tracked Objects</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" style="color: var(--danger-color);" id="debris-count">-</div>
+                        <div class="stat-label">Debris Detected</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" style="color: var(--warning-color);" id="collision-risk">-</div>
+                        <div class="stat-label">Collision Risk</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" style="color: var(--success-color);" id="last-update">-</div>
+                        <div class="stat-label">Last Update</div>
+                    </div>
+                </div>
+
+                <div class="grid grid-2">
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 class="card-title">System Status</h3>
+                        </div>
+                        <div id="system-status">
+                            <div style="text-align: center; padding: 2rem;">
+                                <div class="loading"></div>
+                                <p>Loading system status...</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 class="card-title">Quick Actions</h3>
+                        </div>
+                        <div style="display: flex; flex-direction: column; gap: 1rem;">
+                            <button class="btn btn-primary" onclick="runPrediction()">
+                                <i class="fas fa-play"></i>
+                                Run Detection
+                            </button>
+                            <button class="btn btn-success" onclick="runTrajectoryPrediction()">
+                                <i class="fas fa-rocket"></i>
+                                Predict Trajectories
+                            </button>
+                            <button class="btn btn-warning" onclick="switchToTab('alerts')">
+                                <i class="fas fa-exclamation-triangle"></i>
+                                View Risk Alerts
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 3D Visualization Tab -->
+            <div id="visualization-tab" class="tab-content">
+                <h2>3D Orbital Visualization</h2>
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">Earth & Satellite View</h3>
+                        <div>
+                            <button class="btn btn-outline" onclick="resetCamera()">
+                                <i class="fas fa-home"></i>
+                                Reset View
+                            </button>
+                        </div>
+                    </div>
+                    <div class="viz-container" id="visualization-container">
+                        <div class="viz-controls">
+                            <button class="btn btn-primary" onclick="toggleSatellites()">
+                                <i class="fas fa-satellite"></i>
+                            </button>
+                            <button class="btn btn-warning" onclick="toggleDebris()">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                            <button class="btn btn-success" onclick="toggleTrajectories()">
+                                <i class="fas fa-route"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Predictions Tab -->
+            <div id="predictions-tab" class="tab-content">
+                <h2>Prediction Analytics</h2>
+                <div class="grid grid-2">
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 class="card-title">Collision Detection</h3>
+                            <button class="btn btn-primary" onclick="runPrediction()">
+                                <i class="fas fa-play"></i>
+                                Run Analysis
+                            </button>
+                        </div>
+                        <div id="prediction-results">
+                            <div style="text-align: center; padding: 2rem; color: var(--text-secondary);">
+                                Click "Run Analysis" to start collision detection
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 class="card-title">Trajectory Prediction</h3>
+                            <button class="btn btn-success" onclick="runTrajectoryPrediction()">
+                                <i class="fas fa-rocket"></i>
+                                Generate Trajectories
+                            </button>
+                        </div>
+                        <div id="trajectory-results">
+                            <div style="text-align: center; padding: 2rem; color: var(--text-secondary);">
+                                Click "Generate Trajectories" to predict orbital paths
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Satellite Selection Tab -->
+            <div id="satellites-tab" class="tab-content">
+                <h2>Satellite Selection & Analysis</h2>
+                <div class="grid grid-3">
+                    <div class="card" style="grid-column: span 2;">
+                        <div class="card-header">
+                            <h3 class="card-title">Satellite Database</h3>
+                            <button class="btn btn-outline" onclick="refreshSatelliteList()">
+                                <i class="fas fa-sync"></i>
+                                Refresh
+                            </button>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Search Satellites</label>
+                            <input type="text" class="form-control" id="satellite-search" 
+                                   placeholder="Search by ID or type..." 
+                                   onkeyup="searchSatellites()">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Filter by Risk Level</label>
+                            <select class="form-control" id="risk-filter" onchange="filterSatellites()">
+                                <option value="">All Risk Levels</option>
+                                <option value="CRITICAL">Critical</option>
+                                <option value="HIGH">High</option>
+                                <option value="MEDIUM">Medium</option>
+                                <option value="LOW">Low</option>
+                            </select>
+                        </div>
+                        <div class="satellite-list" id="satellite-list">
+                            <div style="text-align: center; padding: 2rem;">
+                                <div class="loading"></div>
+                                <p>Loading satellite database...</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 class="card-title">High-Risk Satellites</h3>
+                            <button class="btn btn-danger" onclick="viewHighRiskSatellites()">
+                                <i class="fas fa-exclamation-triangle"></i>
+                                View All
+                            </button>
+                        </div>
+                        <div id="high-risk-preview">
+                            <div style="text-align: center; padding: 2rem; color: var(--text-secondary);">
+                                Click "View All" to see high-risk satellites
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Trajectories Tab -->
+            <div id="trajectories-tab" class="tab-content">
+                <h2>Orbital Trajectories</h2>
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">Trajectory Visualization</h3>
+                        <div>
+                            <button class="btn btn-success" onclick="runTrajectoryPrediction()">
+                                <i class="fas fa-rocket"></i>
+                                Generate New
+                            </button>
+                            <button class="btn btn-outline" onclick="clearTrajectories()">
+                                <i class="fas fa-eraser"></i>
+                                Clear All
+                            </button>
+                        </div>
+                    </div>
+                    <div class="viz-container" id="trajectory-container">
+                        <div style="display: flex; align-items: center; justify-content: center; height: 100%; color: var(--text-secondary);">
+                            Switch to 3D Visualization tab or run trajectory prediction to see orbital paths
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Risk Alerts Tab -->
+            <div id="alerts-tab" class="tab-content">
+                <h2>🚨 Risk Alerts & Warnings</h2>
+                
+                <!-- High-Risk Satellites List -->
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">⚠️ High-Risk Satellites</h3>
+                        <button class="btn btn-sm btn-secondary" onclick="loadHighRiskSatellites()">
+                            <i class="fas fa-sync"></i> Refresh
+                        </button>
+                    </div>
+                    <div id="high-risk-satellites-list">
+                        <div style="text-align: center; padding: 2rem;">
+                            <div class="loading"></div>
+                            <p>Loading high-risk satellites...</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="grid grid-2">
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 class="card-title">📊 Active Alerts</h3>
+                            <span class="risk-badge risk-critical">LIVE</span>
+                        </div>
+                        <div id="active-alerts">
+                            <div style="text-align: center; padding: 2rem; color: var(--text-secondary);">
+                                Loading alerts...
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 class="card-title">📈 Risk Summary</h3>
+                        </div>
+                        <div id="risk-summary">
+                            <div style="text-align: center; padding: 2rem;">
+                                <div class="loading"></div>
+                                <p>Loading risk analysis...</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Collision Warnings -->
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">💥 Collision Warnings</h3>
+                    </div>
+                    <div id="collision-warnings">
+                        <div style="text-align: center; padding: 2rem; color: var(--text-secondary);">
+                            Loading collision analysis...
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Settings Tab -->
+            <div id="settings-tab" class="tab-content">
+                <h2>System Settings</h2>
+                
+                <!-- Data Cache Status -->
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">🗂️ Data Cache Status</h3>
+                        <button class="btn btn-sm btn-secondary" onclick="loadCacheStatus()">
+                            <i class="fas fa-sync"></i> Refresh
+                        </button>
+                    </div>
+                    <div id="cache-status-content">
+                        <div style="text-align: center; padding: 2rem; color: var(--text-secondary);">
+                            <div class="loading"></div>
+                            <p>Loading cache status...</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Configuration -->
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">⚙️ Configuration</h3>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Update Interval (seconds)</label>
+                        <input type="number" class="form-control" value="15" min="5" max="300">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Risk Threshold</label>
+                        <select class="form-control">
+                            <option>Low (> 1%)</option>
+                            <option selected>Medium (> 5%)</option>
+                            <option>High (> 10%)</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Cache Download Schedule</label>
+                        <div style="padding: 0.5rem; background: rgba(255, 255, 255, 0.05); border-radius: 4px; font-family: monospace;">
+                            6:00 AM, 2:00 PM, 10:00 PM (Daily)
+                        </div>
+                        <small style="color: var(--text-secondary);">Data is downloaded only at these fixed times to avoid API rate limits</small>
+                    </div>
+                    <button class="btn btn-primary">
+                        <i class="fas fa-save"></i>
+                        Save Settings
+                    </button>
+                </div>
+                
+                <!-- Admin Actions -->
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">🔧 Admin Actions</h3>
+                    </div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                        <button class="btn btn-warning" onclick="forceCacheUpdate()">
+                            <i class="fas fa-download"></i>
+                            Force Cache Update
+                        </button>
+                        <button class="btn btn-info" onclick="viewCacheFiles()">
+                            <i class="fas fa-folder"></i>
+                            View Cache Files
+                        </button>
+                    </div>
+                    <small style="color: var(--text-secondary); margin-top: 1rem; display: block;">
+                        Use "Force Cache Update" only if you need fresh data outside scheduled times
+                    </small>
+                </div>
+            </div>
+
+            <!-- Help Tab -->
+            <div id="help-tab" class="tab-content">
+                <h2>Help & Documentation</h2>
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">NovaGen User Guide</h3>
+                    </div>
+                    <div style="line-height: 1.6;">
+                        <h4 style="color: var(--primary-color); margin-bottom: 1rem;">Getting Started</h4>
+                        <p>NovaGen is an advanced orbital collision prediction system that uses machine learning to detect space debris and predict collision risks.</p>
+                        
+                        <h4 style="color: var(--primary-color); margin: 2rem 0 1rem;">Features</h4>
+                        <ul style="margin-left: 2rem;">
+                            <li><strong>Real-time Detection:</strong> Continuous monitoring of orbital objects</li>
+                            <li><strong>3D Visualization:</strong> Interactive Earth and satellite visualization</li>
+                            <li><strong>Risk Analysis:</strong> ML-powered collision risk assessment</li>
+                            <li><strong>Trajectory Prediction:</strong> Advanced orbital path forecasting</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Satellite Details Modal -->
+    <div id="satellite-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title" id="modal-satellite-title">Satellite Details</h2>
+                <button class="close-btn" onclick="closeSatelliteModal()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem;">
+                <div>
+                    <h4 style="color: var(--primary-color); margin-bottom: 1rem;">Basic Information</h4>
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+                        <span>ID:</span>
+                        <strong id="detail-id">-</strong>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+                        <span>Type:</span>
+                        <strong id="detail-type">-</strong>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+                        <span>Status:</span>
+                        <strong id="detail-status">-</strong>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 1rem;">
+                        <span>Last Updated:</span>
+                        <strong id="detail-updated">-</strong>
+                    </div>
+
+                    <h4 style="color: var(--primary-color); margin-bottom: 1rem;">Position & Velocity</h4>
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+                        <span>Position (km):</span>
+                        <strong id="detail-position">-</strong>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+                        <span>Velocity (km/s):</span>
+                        <strong id="detail-velocity">-</strong>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 1rem;">
+                        <span>Speed:</span>
+                        <strong id="detail-speed">-</strong>
+                    </div>
+                </div>
+
+                <div>
+                    <h4 style="color: var(--danger-color); margin-bottom: 1rem;">Risk Assessment</h4>
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+                        <span>Risk Level:</span>
+                        <strong id="detail-risk-level">-</strong>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+                        <span>Debris Probability:</span>
+                        <strong id="detail-debris-prob">-</strong>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+                        <span>Collision Risk:</span>
+                        <strong id="detail-collision-risk">-</strong>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 1rem;">
+                        <span>Risk Score:</span>
+                        <strong id="detail-risk-score">-</strong>
+                    </div>
+
+                    <h4 style="color: var(--success-color); margin-bottom: 1rem;">Orbital Elements</h4>
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+                        <span>Altitude:</span>
+                        <strong id="detail-altitude">-</strong>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+                        <span>Inclination:</span>
+                        <strong id="detail-inclination">-</strong>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+                        <span>Eccentricity:</span>
+                        <strong id="detail-eccentricity">-</strong>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 1rem;">
+                        <span>Period:</span>
+                        <strong id="detail-period">-</strong>
+                    </div>
+                </div>
+            </div>
+
+            <div style="margin-top: 2rem; display: flex; gap: 1rem; justify-content: center;">
+                <button class="btn btn-primary" onclick="showSatelliteTrajectory()">
+                    <i class="fas fa-route"></i>
+                    View Trajectory
+                </button>
+                <button class="btn btn-outline" onclick="closeSatelliteModal()">
+                    <i class="fas fa-times"></i>
+                    Close
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Alert Container -->
+    <div id="alert-container" class="alert"></div>
+
+    <!-- JavaScript -->
+    <script src="/static/js/dashboard_new.js"></script>
+    <script>
+        // Tab switching functionality
+        function switchToTab(tabName) {
+            // Hide all tab contents
+            document.querySelectorAll('.tab-content').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            
+            // Remove active class from all nav items
+            document.querySelectorAll('.nav-item').forEach(item => {
+                item.classList.remove('active');
+            });
+            
+            // Show selected tab
+            document.getElementById(tabName + '-tab').classList.add('active');
+            
+            // Add active class to selected nav item
+            event.target.closest('.nav-item').classList.add('active');
+            
+            // Update dashboard if needed
+            if (window.dashboard) {
+                window.dashboard.currentTab = tabName;
+                window.dashboard.updateVisibility();
+            }
+        }
+
+        // Global functions for backward compatibility
+        function switchTab(tab) {
+            switchToTab(tab);
+        }
+
+        function runPrediction() {
+            if (window.dashboard) {
+                window.dashboard.runPrediction();
+            }
+        }
+
+        function runTrajectoryPrediction() {
+            if (window.dashboard) {
+                window.dashboard.runTrajectoryPrediction();
+            }
+        }
+
+        function selectSatellite(id) {
+            if (window.dashboard) {
+                window.dashboard.selectSatellite(id);
+            }
+        }
+
+        function closeSatelliteModal() {
+            if (window.dashboard) {
+                window.dashboard.closeSatelliteModal();
+            }
+        }
+
+        function searchSatellites() {
+            const query = document.getElementById('satellite-search').value;
+            if (window.dashboard) {
+                window.dashboard.searchSatellites(query);
+            }
+        }
+
+        function filterSatellites() {
+            const riskLevel = document.getElementById('risk-filter').value;
+            if (window.dashboard) {
+                window.dashboard.filterByRisk(riskLevel);
+            }
+        }
+
+        function viewHighRiskSatellites() {
+            if (window.dashboard) {
+                window.dashboard.viewHighRiskSatellites();
+            }
+        }
+
+        function refreshSatelliteList() {
+            if (window.dashboard) {
+                window.dashboard.refreshSatelliteList();
+            }
+        }
+
+        function resetCamera() {
+            if (window.dashboard) {
+                window.dashboard.resetCamera();
+            }
+        }
+
+        function toggleSatellites() {
+            if (window.dashboard) {
+                window.dashboard.toggleSatellites();
+            }
+        }
+
+        function toggleDebris() {
+            if (window.dashboard) {
+                window.dashboard.toggleDebris();
+            }
+        }
+
+        function toggleTrajectories() {
+            if (window.dashboard) {
+                window.dashboard.toggleTrajectories();
+            }
+        }
+
+        function clearTrajectories() {
+            if (window.dashboard) {
+                window.dashboard.clearTrajectories();
+            }
+        }
+
+        function showSatelliteTrajectory() {
+            if (window.dashboard) {
+                window.dashboard.showSatelliteTrajectory();
+            }
+        }
+    </script>
+</body>
+</html>

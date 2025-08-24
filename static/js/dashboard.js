@@ -1,4 +1,4 @@
-// NovaGen Dashboard - Real-time Orbital Prediction System
+// NovaGen Dashboard - Real-time Orbital Prediction System with Satellite Selection
 class NovaGenDashboard {
     constructor() {
         this.scene = null;
@@ -13,15 +13,46 @@ class NovaGenDashboard {
         this.trajectoryChart = null;
         this.predictionInProgress = false;
         this.apiBaseUrl = 'http://localhost:5000/api';
+        this.selectedSatellite = null;
+        this.satelliteList = [];
+        this.highRiskSatellites = [];
         
         this.init();
         this.startRealTimeUpdates();
+        this.setupEventListeners();
     }
 
     init() {
         this.initThreeJS();
         this.initTrajectoryChart();
         this.updateData();
+        this.loadSatelliteList();
+    }
+
+    setupEventListeners() {
+        // Search box
+        const searchBox = document.getElementById('satellite-search');
+        if (searchBox) {
+            searchBox.addEventListener('input', (e) => {
+                this.searchSatellites(e.target.value);
+            });
+        }
+        
+        // Risk filter
+        const riskFilter = document.getElementById('risk-filter');
+        if (riskFilter) {
+            riskFilter.addEventListener('change', (e) => {
+                this.filterByRisk(e.target.value);
+            });
+        }
+        
+        // Keyboard shortcuts
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                this.closeSatelliteModal();
+                this.closeHighRiskModal();
+            }
+        });
     }
 
     initThreeJS() {
@@ -326,6 +357,306 @@ class NovaGenDashboard {
                 }
             }
         });
+    }
+
+    // Satellite selection and management
+    async loadSatelliteList() {
+        try {
+            const response = await fetch(`${this.apiBaseUrl}/satellites/search?limit=100`);
+            const data = await response.json();
+            
+            this.satelliteList = data.satellites || [];
+            this.displaySatelliteList(this.satelliteList);
+            
+        } catch (error) {
+            console.error('Error loading satellite list:', error);
+            document.getElementById('satellite-list').innerHTML = 
+                '<div style="text-align: center; color: var(--danger-color);">Failed to load satellites</div>';
+        }
+    }
+
+    displaySatelliteList(satellites) {
+        const listContainer = document.getElementById('satellite-list');
+        
+        if (!satellites || satellites.length === 0) {
+            listContainer.innerHTML = '<div style="text-align: center; color: var(--text-secondary);">No satellites found</div>';
+            return;
+        }
+        
+        const html = satellites.map(sat => {
+            const riskClass = sat.risk_level.toLowerCase().replace('critical', 'critical').replace('high', 'high-risk');
+            const typeIcon = sat.is_debris ? '🗑️' : '🛰️';
+            
+            return `
+                <div class="satellite-item-small ${sat.is_debris ? 'debris' : ''} ${riskClass}" 
+                     onclick="dashboard.selectSatellite(${sat.id})" 
+                     title="Click for details">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <div>
+                            <strong>${typeIcon} Satellite #${sat.id}</strong>
+                            <div style="font-size: 0.8rem; color: var(--text-secondary);">
+                                ${sat.type} • Alt: ${sat.altitude.toFixed(0)}km
+                            </div>
+                        </div>
+                        <div style="text-align: right;">
+                            <div style="font-size: 0.7rem; font-weight: 600; color: ${this.getRiskColor(sat.risk_level)};">
+                                ${sat.risk_level}
+                            </div>
+                            <div style="font-size: 0.7rem;">
+                                ${sat.debris_probability.toFixed(1)}%
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }).join('');
+        
+        listContainer.innerHTML = html;
+    }
+
+    getRiskColor(riskLevel) {
+        switch (riskLevel) {
+            case 'CRITICAL': return '#ff4757';
+            case 'HIGH': return '#ffa502';
+            case 'MEDIUM': return '#7b68ee';
+            case 'LOW': return '#2ed573';
+            default: return '#b8b8b8';
+        }
+    }
+
+    async searchSatellites(query) {
+        if (!query.trim()) {
+            this.displaySatelliteList(this.satelliteList);
+            return;
+        }
+        
+        try {
+            const response = await fetch(`${this.apiBaseUrl}/satellites/search?q=${encodeURIComponent(query)}&limit=50`);
+            const data = await response.json();
+            
+            this.displaySatelliteList(data.satellites || []);
+            
+        } catch (error) {
+            console.error('Search error:', error);
+        }
+    }
+
+    async filterByRisk(riskLevel) {
+        if (!riskLevel) {
+            this.displaySatelliteList(this.satelliteList);
+            return;
+        }
+        
+        try {
+            const response = await fetch(`${this.apiBaseUrl}/satellites/search?risk_level=${riskLevel}&limit=100`);
+            const data = await response.json();
+            
+            this.displaySatelliteList(data.satellites || []);
+            
+        } catch (error) {
+            console.error('Filter error:', error);
+        }
+    }
+
+    async selectSatellite(satelliteId) {
+        try {
+            this.showAlert('Loading satellite details...', 'info');
+            
+            const response = await fetch(`${this.apiBaseUrl}/satellite/${satelliteId}/details`);
+            const data = await response.json();
+            
+            if (data.success) {
+                this.selectedSatellite = data.satellite;
+                this.showSatelliteDetails(data.satellite);
+                this.focusOnSatelliteInView(satelliteId);
+            } else {
+                this.showAlert('Failed to load satellite details: ' + data.error, 'danger');
+            }
+            
+        } catch (error) {
+            console.error('Error selecting satellite:', error);
+            this.showAlert('Error loading satellite details', 'danger');
+        }
+    }
+
+    showSatelliteDetails(satellite) {
+        // Populate modal with satellite details
+        document.getElementById('modal-satellite-title').textContent = `Satellite #${satellite.id} Details`;
+        document.getElementById('detail-id').textContent = satellite.id;
+        document.getElementById('detail-type').textContent = satellite.risk_assessment.is_debris ? 'Space Debris' : 'Active Satellite';
+        document.getElementById('detail-status').textContent = satellite.health_status.status;
+        document.getElementById('detail-updated').textContent = new Date(satellite.timestamp).toLocaleString();
+        
+        // Risk assessment
+        document.getElementById('detail-risk-level').textContent = satellite.risk_assessment.risk_level;
+        document.getElementById('detail-risk-level').style.color = this.getRiskColor(satellite.risk_assessment.risk_level);
+        document.getElementById('detail-debris-prob').textContent = `${satellite.risk_assessment.debris_probability.toFixed(2)}%`;
+        document.getElementById('detail-collision-risk').textContent = satellite.risk_assessment.collision_risk;
+        document.getElementById('detail-risk-score').textContent = satellite.risk_assessment.risk_score.toFixed(1);
+        
+        // Position & velocity
+        const pos = satellite.basic_info.position;
+        const vel = satellite.basic_info.velocity;
+        document.getElementById('detail-position').textContent = `(${pos.x.toFixed(1)}, ${pos.y.toFixed(1)}, ${pos.z.toFixed(1)})`;
+        document.getElementById('detail-velocity').textContent = `(${vel.vx.toFixed(3)}, ${vel.vy.toFixed(3)}, ${vel.vz.toFixed(3)})`;
+        document.getElementById('detail-speed').textContent = `${vel.magnitude.toFixed(3)} km/s`;
+        
+        // Orbital elements
+        const orbital = satellite.basic_info.orbital_elements;
+        document.getElementById('detail-altitude').textContent = `${orbital.altitude.toFixed(1)} km`;
+        document.getElementById('detail-inclination').textContent = `${orbital.inclination.toFixed(2)}°`;
+        document.getElementById('detail-eccentricity').textContent = orbital.eccentricity.toFixed(4);
+        document.getElementById('detail-period').textContent = `${(orbital.period / 60).toFixed(1)} min`;
+        document.getElementById('detail-apogee').textContent = `${orbital.apogee.toFixed(1)} km`;
+        document.getElementById('detail-perigee').textContent = `${orbital.perigee.toFixed(1)} km`;
+        
+        // Health flags
+        const flagsContainer = document.getElementById('detail-flags');
+        flagsContainer.innerHTML = satellite.health_status.flags.map(flag => 
+            `<span class="threat-badge ${satellite.health_status.status.toLowerCase()}">${flag}</span>`
+        ).join('');
+        
+        // Show modal
+        document.getElementById('satellite-modal').classList.add('show');
+    }
+
+    closeSatelliteModal() {
+        document.getElementById('satellite-modal').classList.remove('show');
+        this.selectedSatellite = null;
+    }
+
+    async viewHighRiskSatellites() {
+        try {
+            this.showAlert('Loading high-risk satellites...', 'info');
+            
+            const response = await fetch(`${this.apiBaseUrl}/satellites/high-risk`);
+            const data = await response.json();
+            
+            if (data.success) {
+                this.highRiskSatellites = data.satellites;
+                this.showHighRiskModal(data);
+            } else {
+                this.showAlert('Failed to load high-risk satellites: ' + data.error, 'danger');
+            }
+            
+        } catch (error) {
+            console.error('Error loading high-risk satellites:', error);
+            this.showAlert('Error loading high-risk satellites', 'danger');
+        }
+    }
+
+    showHighRiskModal(data) {
+        // Summary cards
+        const summaryContainer = document.getElementById('high-risk-summary');
+        const summary = data.threat_summary;
+        summaryContainer.innerHTML = `
+            <div class="detail-section" style="text-align: center; flex: 1;">
+                <h3 style="color: var(--danger-color); margin-bottom: 0.5rem;">${summary.critical}</h3>
+                <div>Critical</div>
+            </div>
+            <div class="detail-section" style="text-align: center; flex: 1;">
+                <h3 style="color: var(--warning-color); margin-bottom: 0.5rem;">${summary.high}</h3>
+                <div>High</div>
+            </div>
+            <div class="detail-section" style="text-align: center; flex: 1;">
+                <h3 style="color: var(--accent-color); margin-bottom: 0.5rem;">${summary.elevated}</h3>
+                <div>Elevated</div>
+            </div>
+            <div class="detail-section" style="text-align: center; flex: 1;">
+                <h3 style="color: var(--primary-color); margin-bottom: 0.5rem;">${summary.moderate}</h3>
+                <div>Moderate</div>
+            </div>
+        `;
+        
+        // High-risk table
+        const tbody = document.getElementById('high-risk-tbody');
+        tbody.innerHTML = data.satellites.map(sat => `
+            <tr onclick="dashboard.selectSatellite(${sat.id})" style="cursor: pointer;">
+                <td>#${sat.id}</td>
+                <td><span class="threat-badge threat-${sat.threat_level.toLowerCase()}">${sat.threat_level}</span></td>
+                <td>${sat.debris_probability}%</td>
+                <td>${sat.position.altitude.toFixed(0)} km</td>
+                <td>${sat.priority_score}</td>
+                <td>${sat.status_flags.join(', ')}</td>
+                <td>
+                    <button class="btn" onclick="event.stopPropagation(); dashboard.selectSatellite(${sat.id})" style="padding: 0.3rem 0.8rem; font-size: 0.8rem;">
+                        <i class="fas fa-eye"></i> View
+                    </button>
+                </td>
+            </tr>
+        `).join('');
+        
+        // Show modal
+        document.getElementById('high-risk-modal').classList.add('show');
+    }
+
+    closeHighRiskModal() {
+        document.getElementById('high-risk-modal').classList.remove('show');
+    }
+
+    focusOnSatelliteInView(satelliteId) {
+        // Find satellite in 3D view and focus camera on it
+        const allObjects = [...this.satellites, ...this.debrisObjects];
+        const targetSatellite = allObjects.find(sat => sat.userData && sat.userData.id === satelliteId);
+        
+        if (targetSatellite && this.camera) {
+            const targetPos = targetSatellite.position;
+            const distance = 5000; // km
+            
+            // Position camera to look at the satellite
+            this.camera.position.set(
+                targetPos.x + distance,
+                targetPos.y + distance,
+                targetPos.z + distance
+            );
+            this.camera.lookAt(targetPos);
+            
+            // Highlight the satellite temporarily
+            const originalMaterial = targetSatellite.material;
+            targetSatellite.material = targetSatellite.material.clone();
+            targetSatellite.material.emissive.setHex(0xffffff);
+            
+            setTimeout(() => {
+                targetSatellite.material = originalMaterial;
+            }, 3000);
+            
+            this.showAlert(`Focused on Satellite #${satelliteId}`, 'success');
+        }
+    }
+
+    async showSatelliteTrajectory() {
+        if (!this.selectedSatellite) return;
+        
+        try {
+            const response = await fetch(`${this.apiBaseUrl}/trajectory/${this.selectedSatellite.id}`);
+            const data = await response.json();
+            
+            if (!data.error) {
+                // Switch to trajectories tab and show this satellite's trajectory
+                this.currentTab = 'trajectories';
+                document.querySelectorAll('.viz-tab').forEach(tab => tab.classList.remove('active'));
+                document.querySelector('[onclick="switchTab(\'trajectories\')"]').classList.add('active');
+                
+                // Create trajectory visualization for this satellite
+                this.createRealTrajectoryVisualization([data]);
+                this.updateVisibility();
+                
+                this.showAlert('Trajectory displayed in 3D view', 'success');
+                this.closeSatelliteModal();
+            } else {
+                this.showAlert('Failed to load trajectory: ' + data.error, 'danger');
+            }
+            
+        } catch (error) {
+            console.error('Trajectory error:', error);
+            this.showAlert('Error loading trajectory', 'danger');
+        }
+    }
+
+    async refreshSatelliteList() {
+        this.showAlert('Refreshing satellite list...', 'info');
+        await this.loadSatelliteList();
+        this.showAlert('Satellite list refreshed', 'success');
     }
 
     // API calls
@@ -703,9 +1034,84 @@ function runTrajectoryPrediction() {
     }
 }
 
+// Global functions for HTML event handlers
+function switchTab(tab) {
+    if (window.dashboard) {
+        window.dashboard.switchTab(tab);
+    }
+}
+
+function runPrediction() {
+    if (window.dashboard) {
+        window.dashboard.runPrediction();
+    }
+}
+
+function runTrajectoryPrediction() {
+    if (window.dashboard) {
+        window.dashboard.runTrajectoryPrediction();
+    }
+}
+
+function selectSatellite(id) {
+    if (window.dashboard) {
+        window.dashboard.selectSatellite(id);
+    }
+}
+
+function closeSatelliteModal() {
+    if (window.dashboard) {
+        window.dashboard.closeSatelliteModal();
+    }
+}
+
+function closeHighRiskModal() {
+    if (window.dashboard) {
+        window.dashboard.closeHighRiskModal();
+    }
+}
+
+function showSatelliteTrajectory() {
+    if (window.dashboard) {
+        window.dashboard.showSatelliteTrajectory();
+    }
+}
+
+function searchSatellites() {
+    const query = document.getElementById('satellite-search').value;
+    if (window.dashboard) {
+        window.dashboard.searchSatellites(query);
+    }
+}
+
+function filterSatellites() {
+    const riskLevel = document.getElementById('risk-filter').value;
+    if (window.dashboard) {
+        window.dashboard.filterByRisk(riskLevel);
+    }
+}
+
+function viewHighRiskSatellites() {
+    if (window.dashboard) {
+        window.dashboard.viewHighRiskSatellites();
+    }
+}
+
+function refreshSatelliteList() {
+    if (window.dashboard) {
+        window.dashboard.refreshSatelliteList();
+    }
+}
+
 // Initialize dashboard when DOM is loaded
 document.addEventListener('DOMContentLoaded', () => {
     window.dashboard = new NovaGenDashboard();
+    
+    // Load initial satellite list
+    setTimeout(() => {
+        window.dashboard.loadSatelliteList();
+    }, 2000); // Wait for initial data load
+    
     console.log('🚀 NovaGen Dashboard initialized');
     console.log('Real-time orbital collision prediction system active');
 });
