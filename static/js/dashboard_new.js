@@ -223,7 +223,7 @@ class AstraeusDashboard {
 
         // Scene setup
         this.scene = new THREE.Scene();
-        this.scene.background = new THREE.Color(0x000011);
+        this.scene.background = new THREE.Color(0x000000);
 
         // Camera setup
         this.camera = new THREE.PerspectiveCamera(75, container.clientWidth / container.clientHeight, 0.1, 50000);
@@ -379,26 +379,37 @@ class AstraeusDashboard {
     }
 
     createEarth() {
-        const geometry = new THREE.SphereGeometry(6371, 64, 64);
-        
-        // Earth material with basic color
+        const earthRadius = 6371;
+        const geometry = new THREE.SphereGeometry(earthRadius, 64, 64);
+
+        // Earth material matching trajectory visualization
         const material = new THREE.MeshPhongMaterial({
-            color: 0x6b93d6,
-            shininess: 40,
-            emissive: 0x001022,
-            specular: 0x335577
+            color: 0x4488bb,
+            transparent: false,
+            opacity: 1.0
         });
 
         this.earth = new THREE.Mesh(geometry, material);
         this.earth.receiveShadow = true;
         this.scene.add(this.earth);
 
-        // Add atmosphere
-        const atmosphereGeometry = new THREE.SphereGeometry(6371 * 1.025, 64, 64);
-        const atmosphereMaterial = new THREE.MeshBasicMaterial({
-            color: 0x87ceeb,
+        // Add wireframe overlay for Earth (matching trajectory visualization)
+        const wireframeGeometry = new THREE.SphereGeometry(earthRadius * 1.01, 32, 32);
+        const wireframeMaterial = new THREE.MeshBasicMaterial({
+            color: 0x44aaff,
+            wireframe: true,
             transparent: true,
-            opacity: 0.12
+            opacity: 0.3
+        });
+        const wireframe = new THREE.Mesh(wireframeGeometry, wireframeMaterial);
+        this.scene.add(wireframe);
+
+        // Add atmosphere with adjusted colors for black background
+        const atmosphereGeometry = new THREE.SphereGeometry(earthRadius * 1.025, 64, 64);
+        const atmosphereMaterial = new THREE.MeshBasicMaterial({
+            color: 0x44aaff,
+            transparent: true,
+            opacity: 0.15
         });
         const atmosphere = new THREE.Mesh(atmosphereGeometry, atmosphereMaterial);
         this.scene.add(atmosphere);
@@ -1130,7 +1141,7 @@ class AstraeusDashboard {
 
         // Create trajectory visualization scene
         const scene = new THREE.Scene();
-        scene.background = new THREE.Color(0x000011);
+        scene.background = new THREE.Color(0x000000);
         
         const camera = new THREE.PerspectiveCamera(75, container.clientWidth / container.clientHeight, 0.1, 50000);
         const renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true });
@@ -1182,7 +1193,7 @@ class AstraeusDashboard {
             controls.dampingFactor = 0.05;
             controls.screenSpacePanning = false;
             controls.minDistance = earthRadius * 1.5;
-            controls.maxDistance = earthRadius * 8;
+            controls.maxDistance = earthRadius * 10;
             controls.target.set(0, 0, 0);
             controls.autoRotate = false;
             controls.autoRotateSpeed = 0.5;
