@@ -238,8 +238,8 @@ TLE_CACHE_DURATION=3600  # seconds
 ### Development Setup
 ```bash
 # Fork and clone
-git clone https://github.com/your-username/NovaGen.git
-cd NovaGen
+git clone https://github.com/your-username/Astraeus.git
+cd Astraeus
 
 # Create virtual environment
 python -m venv venv
