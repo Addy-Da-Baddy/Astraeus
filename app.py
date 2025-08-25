@@ -16,6 +16,7 @@ import io
 import base64
 from predict_collision_risk import CollisionRiskPredictor
 from data_collection import get_latest_features, get_cache_status
+from data_viz import DataVisualization
 
 def convert_numpy_types(obj):
     """Convert numpy types to native Python types for JSON serialization"""
@@ -60,10 +61,10 @@ def initialize_predictor():
     global predictor
     try:
         predictor = CollisionRiskPredictor()
-        print("✅ Predictor initialized successfully")
+        print("Predictor initialized successfully")
         return True
     except Exception as e:
-        print(f"❌ Error initializing predictor: {e}")
+        print(f"Error initializing predictor: {e}")
         return False
 
 def update_data():
@@ -76,7 +77,7 @@ def update_data():
                 time.sleep(30)
                 continue
                 
-            print("🔄 Fetching latest satellite data...")
+            print("Fetching latest satellite data...")
             features_df = get_latest_features("active_satellites", label=0)
             
             if features_df is not None and len(features_df) > 0:
@@ -117,14 +118,14 @@ def update_data():
                     'status': 'active'
                 })
                 
-                print(f"✅ Data updated: {latest_data['total_objects']} objects, {latest_data['debris_count']} debris")
+                print(f"Data updated: {latest_data['total_objects']} objects, {latest_data['debris_count']} debris")
                 
             else:
-                print("❌ Failed to fetch satellite data")
+                print("Failed to fetch satellite data")
                 latest_data['status'] = 'error'
                 
         except Exception as e:
-            print(f"❌ Error updating data: {e}")
+            print(f"Error updating data: {e}")
             latest_data['status'] = 'error'
             
         # Wait 5 minutes before next update
@@ -225,7 +226,7 @@ def api_predict_realtime():
         if predictor is None:
             return jsonify({'error': 'Predictor not initialized'}), 500
             
-        print("🔄 Fetching fresh satellite data for real-time prediction...")
+        print("Fetching fresh satellite data for real-time prediction...")
         
         # Get completely fresh data
         features_df = get_latest_features("active_satellites", label=0)
@@ -295,7 +296,7 @@ def api_predict_realtime():
             return jsonify({'error': 'Failed to fetch fresh satellite data'}), 500
             
     except Exception as e:
-        print(f"❌ Real-time prediction error: {e}")
+        print(f"Real-time prediction error: {e}")
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/predict', methods=['POST'])
@@ -406,7 +407,7 @@ def api_satellite_details(satellite_id):
         })
         
     except Exception as e:
-        print(f"❌ Satellite details error: {e}")
+        print(f"Satellite details error: {e}")
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/satellites/high-risk')
@@ -422,7 +423,7 @@ def api_high_risk_satellites():
         if features_df is None or len(features_df) == 0:
             return jsonify({'error': 'No satellite data available'}), 500
             
-        print(f"🔍 Analyzing {len(features_df)} satellites for high-risk assessment...")
+        print(f"Analyzing {len(features_df)} satellites for high-risk assessment...")
         
         # Run collision risk assessment
         results = predictor.assess_collision_risk(features_df)
@@ -540,7 +541,7 @@ def api_high_risk_satellites():
         })
         
     except Exception as e:
-        print(f"❌ High-risk satellites error: {e}")
+        print(f"High-risk satellites error: {e}")
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/satellites/search')
@@ -654,7 +655,7 @@ def api_search_satellites():
         })
         
     except Exception as e:
-        print(f"❌ Satellite search error: {e}")
+        print(f"Satellite search error: {e}")
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/trajectory/<int:satellite_id>')
@@ -748,7 +749,7 @@ def api_trajectory(satellite_id):
         })
         
     except Exception as e:
-        print(f"❌ Trajectory prediction error: {e}")
+        print(f"Trajectory prediction error: {e}")
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/trajectory-bulk', methods=['POST'])
@@ -767,107 +768,46 @@ def api_trajectory_bulk():
         # Limit to first 100 satellites for performance
         limited_df = features_df.head(100)
         
-        print(f"🚀 Generating bulk trajectory predictions for {len(limited_df)} satellites...")
+        print(f"Generating bulk trajectory predictions for {len(limited_df)} satellites...")
         
         # Run trajectory prediction using neural networks
         trajectory_results = predictor.predict_trajectory(limited_df)
-        
-        print(f"🤖 Trajectory prediction results: {type(trajectory_results)}")
-        if trajectory_results:
-            print(f"🤖 Available prediction keys: {list(trajectory_results.keys())}")
-            for key, value in trajectory_results.items():
-                if hasattr(value, '__len__'):
-                    print(f"🤖 {key}: {len(value)} predictions, type: {type(value)}")
-                    if len(value) > 0:
-                        print(f"🤖 {key} sample: {type(value[0])}, shape: {getattr(value[0], 'shape', 'no shape')}")
         
         if trajectory_results:
             trajectories_generated = 0
             satellite_trajectories = []
             
-            # Use actual model predictions instead of fake orbital mechanics
             for idx, row in limited_df.iterrows():
+                # Generate simplified trajectory for visualization
                 trajectory_points = []
                 
-                # Get actual predictions from the models
-                model_pred = None
-                if 'LSTM' in trajectory_results and len(trajectory_results['LSTM']) > trajectories_generated:
-                    model_pred = trajectory_results['LSTM'][trajectories_generated]
-                    print(f"🤖 Using LSTM predictions for satellite {idx}")
-                elif 'GRU' in trajectory_results and len(trajectory_results['GRU']) > trajectories_generated:
-                    model_pred = trajectory_results['GRU'][trajectories_generated]
-                    print(f"🤖 Using GRU predictions for satellite {idx}")
+                # Get current orbital parameters
+                altitude = float(row.get('altitude', 400))
+                inclination = float(row.get('inclination', 0)) * np.pi / 180
+                current_pos = {
+                    'x': float(row.get('pos_x', 0)),
+                    'y': float(row.get('pos_y', 0)),
+                    'z': float(row.get('pos_z', 0))
+                }
                 
-                if model_pred is not None and len(model_pred) > 0:
-                    print(f"🤖 Model prediction shape: {model_pred.shape if hasattr(model_pred, 'shape') else len(model_pred)}")
+                # Generate 20 trajectory points (simplified for performance)
+                for i in range(20):
+                    t = i * 600  # 10-minute intervals
                     
-                    # Neural network models typically predict position/velocity changes
-                    current_x = float(row.get('pos_x', 0))
-                    current_y = float(row.get('pos_y', 0))
-                    current_z = float(row.get('pos_z', 0))
+                    # Simplified orbital propagation
+                    orbital_period = 2 * np.pi * np.sqrt((altitude + 6371)**3 / 398600.4418)
+                    angular_velocity = 2 * np.pi / orbital_period
+                    angle = angular_velocity * t
+                    radius = altitude + 6371
                     
-                    # Use actual model predictions with realistic noise
-                    for i, pred_step in enumerate(model_pred):
-                        # Model predictions are typically deltas or absolute positions
-                        if hasattr(pred_step, '__len__') and len(pred_step) >= 3:
-                            # Assuming model predicts [dx, dy, dz] or [x, y, z]
-                            pred_x = float(pred_step[0])
-                            pred_y = float(pred_step[1]) 
-                            pred_z = float(pred_step[2])
-                            
-                            # If predictions look like deltas (small values), treat as position changes
-                            if abs(pred_x) < 1000 and abs(pred_y) < 1000 and abs(pred_z) < 1000:
-                                x = current_x + pred_x
-                                y = current_y + pred_y
-                                z = current_z + pred_z
-                            else:
-                                # Treat as absolute positions
-                                x = pred_x
-                                y = pred_y
-                                z = pred_z
-                        else:
-                            # Fallback for unexpected prediction format
-                            continue
-                        
-                        # Add measurement noise to model predictions
-                        noise_x = np.random.normal(0, 2.0)
-                        noise_y = np.random.normal(0, 2.0) 
-                        noise_z = np.random.normal(0, 2.0)
-                        
-                        trajectory_points.append({
-                            'time': float(i * 600),  # 10-minute intervals
-                            'x': float(x + noise_x),
-                            'y': float(y + noise_y),
-                            'z': float(z + noise_z),
-                            'altitude': float(np.sqrt(x**2 + y**2 + z**2) - 6371),
-                            'confidence': float(0.9 - i * 0.02)
-                        })
-                
-                # If no model predictions available, fallback to current position with drift
-                if len(trajectory_points) == 0:
-                    current_x = float(row.get('pos_x', 0))
-                    current_y = float(row.get('pos_y', 0))
-                    current_z = float(row.get('pos_z', 0))
-                    vel_x = float(row.get('vel_x', 0))
-                    vel_y = float(row.get('vel_y', 0))
-                    vel_z = float(row.get('vel_z', 0))
-                    
-                    for i in range(20):
-                        t = i * 600  # 10-minute intervals
-                        
-                        # Simple physics propagation with noise
-                        x = current_x + vel_x * t + np.random.normal(0, 5.0)
-                        y = current_y + vel_y * t + np.random.normal(0, 5.0)
-                        z = current_z + vel_z * t + np.random.normal(0, 5.0)
-                        
-                        trajectory_points.append({
-                            'time': float(t),
-                            'x': float(x),
-                            'y': float(y),
-                            'z': float(z),
-                            'altitude': float(np.sqrt(x**2 + y**2 + z**2) - 6371),
-                            'confidence': float(0.8 - i * 0.03)
-                        })
+                    trajectory_points.append({
+                        'time': float(t),
+                        'x': float(radius * np.cos(angle) * np.cos(inclination)),
+                        'y': float(radius * np.sin(angle) * np.sin(inclination)),
+                        'z': float(radius * np.sin(angle) * np.cos(inclination)),
+                        'altitude': float(altitude),
+                        'confidence': float(0.9 - i * 0.02)
+                    })
                 
                 satellite_trajectories.append({
                     'satellite_id': int(idx),
@@ -891,7 +831,7 @@ def api_trajectory_bulk():
             return jsonify({'error': 'Trajectory prediction models not available'}), 500
             
     except Exception as e:
-        print(f"❌ Bulk trajectory prediction error: {e}")
+        print(f"Bulk trajectory prediction error: {e}")
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/trajectory-plot', methods=['POST'])
@@ -917,68 +857,17 @@ def api_trajectory_plot():
             if features_df is None or len(features_df) == 0:
                 return jsonify({'error': 'No satellite data available'}), 400
             limited_df = features_df.head(10)
-            
-            # Get actual model predictions for the matplotlib plot
-            trajectory_results = predictor.predict_trajectory(limited_df)
-            
             for idx, row in limited_df.iterrows():
+                altitude = float(row.get('altitude', 400))
+                inclination = float(row.get('inclination', 0)) * np.pi / 180
                 trajectory_points = []
-                
-                # Try to use actual model predictions first
-                predictions_used = False
-                if trajectory_results:
-                    if 'LSTM' in trajectory_results and len(trajectory_results['LSTM']) > idx:
-                        model_pred = trajectory_results['LSTM'][idx]
-                        predictions_used = True
-                        print(f"📊 Using LSTM predictions for matplotlib plot {idx}")
-                    elif 'GRU' in trajectory_results and len(trajectory_results['GRU']) > idx:
-                        model_pred = trajectory_results['GRU'][idx]
-                        predictions_used = True
-                        print(f"📊 Using GRU predictions for matplotlib plot {idx}")
-                    
-                    if predictions_used and model_pred is not None and len(model_pred) > 0:
-                        current_x = float(row.get('pos_x', 0))
-                        current_y = float(row.get('pos_y', 0))
-                        current_z = float(row.get('pos_z', 0))
-                        
-                        for i, pred_step in enumerate(model_pred):
-                            if hasattr(pred_step, '__len__') and len(pred_step) >= 3:
-                                pred_x = float(pred_step[0])
-                                pred_y = float(pred_step[1])
-                                pred_z = float(pred_step[2])
-                                
-                                # Handle delta vs absolute predictions
-                                if abs(pred_x) < 1000 and abs(pred_y) < 1000 and abs(pred_z) < 1000:
-                                    x = current_x + pred_x
-                                    y = current_y + pred_y
-                                    z = current_z + pred_z
-                                else:
-                                    x = pred_x
-                                    y = pred_y
-                                    z = pred_z
-                                
-                                # Add small amount of measurement noise
-                                x += np.random.normal(0, 1.0)
-                                y += np.random.normal(0, 1.0)
-                                z += np.random.normal(0, 1.0)
-                                trajectory_points.append({'x': x, 'y': y, 'z': z})
-                
-                # Fallback to current position with physics if no predictions
-                if not predictions_used or len(trajectory_points) == 0:
-                    current_x = float(row.get('pos_x', 0))
-                    current_y = float(row.get('pos_y', 0))
-                    current_z = float(row.get('pos_z', 0))
-                    vel_x = float(row.get('vel_x', 0))
-                    vel_y = float(row.get('vel_y', 0))
-                    vel_z = float(row.get('vel_z', 0))
-                    
-                    for i in range(20):
-                        t = i * 600
-                        # Simple physics with noise
-                        x = current_x + vel_x * t + np.random.normal(0, 3.0)
-                        y = current_y + vel_y * t + np.random.normal(0, 3.0)
-                        z = current_z + vel_z * t + np.random.normal(0, 3.0)
-                        trajectory_points.append({'x': x, 'y': y, 'z': z})
+                for i in range(20):
+                    t = i * 600
+                    orbital_period = 2 * np.pi * np.sqrt((altitude + 6371)**3 / 398600.4418)
+                    angular_velocity = 2 * np.pi / orbital_period
+                    angle = angular_velocity * t
+                    radius = altitude + 6371
+                    trajectory_points.append({'x': radius * np.cos(angle) * np.cos(inclination), 'y': radius * np.sin(angle) * np.sin(inclination), 'z': radius * np.sin(angle) * np.cos(inclination)})
                 trajectories.append({'satellite_id': int(idx), 'points': trajectory_points, 'is_debris': bool(row.get('label', 0) == 1)})
         plt.style.use('dark_background')
         fig = plt.figure(figsize=(15, 10))
@@ -1089,7 +978,7 @@ def api_trajectory_plot():
         return jsonify({'success': True, 'plot_image': img_base64, 'trajectories_count': len(trajectories), 'prediction_horizon': 3.3, 'timestamp': datetime.now().isoformat()})
         
     except Exception as e:
-        print(f"❌ Trajectory plot generation error: {e}")
+        print(f"Trajectory plot generation error: {e}")
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/trajectory-download', methods=['POST'])
@@ -1177,8 +1066,121 @@ def force_cache_update():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+# Data Visualization Routes
+@app.route('/api/charts/dashboard')
+def get_dashboard_charts():
+    """Get all dashboard charts as base64 images"""
+    try:
+        viz = DataVisualization()
+        charts = viz.get_dashboard_charts()
+        return jsonify({
+            'success': True,
+            'charts': charts
+        })
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@app.route('/api/charts/collision-risk')
+def get_collision_risk_chart():
+    """Get collision risk timeline chart"""
+    try:
+        viz = DataVisualization()
+        chart = viz.create_collision_risk_timeline()
+        return jsonify({
+            'success': True,
+            'chart': chart
+        })
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@app.route('/api/charts/orbital-distribution')
+def get_orbital_distribution_chart():
+    """Get orbital altitude distribution chart"""
+    try:
+        viz = DataVisualization()
+        chart = viz.create_orbital_altitude_distribution()
+        return jsonify({
+            'success': True,
+            'chart': chart
+        })
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@app.route('/api/charts/prediction-accuracy')
+def get_prediction_accuracy_chart():
+    """Get prediction accuracy trend chart"""
+    try:
+        viz = DataVisualization()
+        chart = viz.create_prediction_accuracy_trend()
+        return jsonify({
+            'success': True,
+            'chart': chart
+        })
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@app.route('/api/charts/risk-distribution')
+def get_risk_distribution_chart():
+    """Get risk distribution pie chart"""
+    try:
+        viz = DataVisualization()
+        chart = viz.create_risk_distribution_pie()
+        return jsonify({
+            'success': True,
+            'chart': chart
+        })
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@app.route('/api/charts/3d-orbital')
+def get_3d_orbital_chart():
+    """Get 3D orbital scatter plot"""
+    try:
+        viz = DataVisualization()
+        chart = viz.create_3d_orbital_scatter()
+        return jsonify({
+            'success': True,
+            'chart': chart
+        })
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@app.route('/api/charts/correlation-heatmap')
+def get_correlation_heatmap():
+    """Get orbital parameters correlation heatmap"""
+    try:
+        viz = DataVisualization()
+        chart = viz.create_heatmap_correlation()
+        return jsonify({
+            'success': True,
+            'chart': chart
+        })
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
 if __name__ == '__main__':
-    print("🚀 Starting Astraeus Web Demo...")
+    print("Starting Astraeus Web Demo...")
     
     # Initialize predictor
     if initialize_predictor():
@@ -1189,4 +1191,4 @@ if __name__ == '__main__':
         print("🌐 Starting Flask server...")
         app.run(debug=True, host='0.0.0.0', port=5000, threaded=True)
     else:
-        print("❌ Failed to initialize predictor. Please run model_training.py first.")
+        print("Failed to initialize predictor. Please run model_training.py first.")

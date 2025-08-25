@@ -1,3 +1,4 @@
+
 class AstraeusDashboard {
     constructor() {
         this.apiBaseUrl = '/api';
@@ -23,15 +24,12 @@ class AstraeusDashboard {
         this.zoomGestureActive = false;
         this._wheelCooldown = null;
         this.trajectoryViewMode = '3d';
-        this.trajectoryData = null;
-
+        
         this.init();
-        this.updateDownloadButtonStates();
     }
 
     switchTrajectoryView(mode) {
         this.trajectoryViewMode = mode === 'static' ? 'static' : '3d';
-        this.updateTrajectoryButtonStates();
         if (this.trajectoryViewMode === '3d') {
             this.initializeTrajectoryVisualization();
         } else {
@@ -39,72 +37,10 @@ class AstraeusDashboard {
         }
     }
 
-    updateTrajectoryButtonStates() {
-        // Remove active class from all trajectory view buttons
-        const buttons = document.querySelectorAll('[onclick*="switchTrajectoryView"]');
-        buttons.forEach(btn => {
-            btn.classList.remove('btn-primary');
-            btn.classList.add('btn-outline');
-        });
-
-        // Add active class to the current view button
-        if (this.trajectoryViewMode === '3d') {
-            const btn3D = document.querySelector('[onclick*="switchTrajectoryView(\'3d\')"]');
-            if (btn3D) {
-                btn3D.classList.remove('btn-outline');
-                btn3D.classList.add('btn-primary');
-            }
-        } else if (this.trajectoryViewMode === 'static') {
-            const btnStatic = document.querySelector('[onclick*="switchTrajectoryView(\'static\')"]');
-            if (btnStatic) {
-                btnStatic.classList.remove('btn-outline');
-                btnStatic.classList.add('btn-primary');
-            }
-        }
-    }
-
-    resetTrajectoryButtonStates() {
-        // Remove active class from all trajectory view buttons
-        const buttons = document.querySelectorAll('[onclick*="switchTrajectoryView"]');
-        buttons.forEach(btn => {
-            btn.classList.remove('btn-primary');
-            btn.classList.add('btn-outline');
-        });
-    }
-
-    updateDownloadButtonStates() {
-        const hasData = this.trajectoryData && this.trajectoryData.trajectories_generated > 0;
-
-        // Enable/disable download and analysis buttons
-        const csvBtn = document.getElementById('csv-download-btn');
-        const imageBtn = document.getElementById('image-download-btn');
-        const analysisBtn = document.getElementById('analysis-btn');
-
-        if (csvBtn) {
-            csvBtn.disabled = !hasData;
-        }
-        if (imageBtn) {
-            imageBtn.disabled = !hasData;
-        }
-        if (analysisBtn) {
-            analysisBtn.disabled = !hasData;
-        }
-    }
-
     async renderStaticTrajectoryPlot() {
         const container = document.getElementById('trajectory-container');
         if (!container || !this.trajectoryData) return;
-
-        // Set view mode to static and update button states
-        this.trajectoryViewMode = 'static';
-        this.updateTrajectoryButtonStates();
-
-        container.innerHTML = `
-            <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; text-align: center; padding: 2rem;">
-                <div class="loading" style="margin-bottom: 2rem;"></div>
-                <p style="margin: 0; color: var(--text-secondary); font-size: 0.9rem;">Rendering static plot...</p>
-            </div>
-        `;
+        container.innerHTML = '<div style="text-align: center; padding: 2rem;"><div class="loading"></div><p>Rendering static plot...</p></div>';
         try {
             const predictions = this.trajectoryData.satellite_trajectories || this.trajectoryData.predictions || [];
             const response = await fetch(`${this.apiBaseUrl}/trajectory-plot`, {
@@ -130,11 +66,6 @@ class AstraeusDashboard {
     }
 
     async downloadTrajectoryCSV() {
-        if (!this.trajectoryData || !this.trajectoryData.trajectories_generated) {
-            this.showAlert('No trajectory data available. Please generate trajectories first.', 'warning');
-            return;
-        }
-
         try {
             const predictions = (this.trajectoryData && (this.trajectoryData.satellite_trajectories || this.trajectoryData.predictions)) || [];
             const response = await fetch(`${this.apiBaseUrl}/trajectory-download`, {
@@ -158,11 +89,6 @@ class AstraeusDashboard {
     }
 
     async downloadTrajectoryPlot() {
-        if (!this.trajectoryData || !this.trajectoryData.trajectories_generated) {
-            this.showAlert('No trajectory data available. Please generate trajectories first.', 'warning');
-            return;
-        }
-
         try {
             const predictions = (this.trajectoryData && (this.trajectoryData.satellite_trajectories || this.trajectoryData.predictions)) || [];
             const response = await fetch(`${this.apiBaseUrl}/trajectory-plot`, {
@@ -197,7 +123,7 @@ class AstraeusDashboard {
         await this.initializeVisualization();
         await this.startRealTimeUpdates();
         this.setupEventListeners();
-        this.showAlert('<i class="fas fa-rocket"></i> Astraeus Dashboard initialized', 'success');
+        this.showAlert('Astraeus Dashboard initialized', 'success');
         
         // Center the view initially
         this.centerDefaultView(true);
@@ -223,7 +149,7 @@ class AstraeusDashboard {
 
         // Scene setup
         this.scene = new THREE.Scene();
-        this.scene.background = new THREE.Color(0x000000);
+        this.scene.background = new THREE.Color(0x000011);
 
         // Camera setup
         this.camera = new THREE.PerspectiveCamera(75, container.clientWidth / container.clientHeight, 0.1, 50000);
@@ -379,37 +305,26 @@ class AstraeusDashboard {
     }
 
     createEarth() {
-        const earthRadius = 6371;
-        const geometry = new THREE.SphereGeometry(earthRadius, 64, 64);
-
-        // Earth material matching trajectory visualization
+        const geometry = new THREE.SphereGeometry(6371, 64, 64);
+        
+        // Earth material with basic color
         const material = new THREE.MeshPhongMaterial({
-            color: 0x4488bb,
-            transparent: false,
-            opacity: 1.0
+            color: 0x6b93d6,
+            shininess: 40,
+            emissive: 0x001022,
+            specular: 0x335577
         });
 
         this.earth = new THREE.Mesh(geometry, material);
         this.earth.receiveShadow = true;
         this.scene.add(this.earth);
 
-        // Add wireframe overlay for Earth (matching trajectory visualization)
-        const wireframeGeometry = new THREE.SphereGeometry(earthRadius * 1.01, 32, 32);
-        const wireframeMaterial = new THREE.MeshBasicMaterial({
-            color: 0x44aaff,
-            wireframe: true,
-            transparent: true,
-            opacity: 0.3
-        });
-        const wireframe = new THREE.Mesh(wireframeGeometry, wireframeMaterial);
-        this.scene.add(wireframe);
-
-        // Add atmosphere with adjusted colors for black background
-        const atmosphereGeometry = new THREE.SphereGeometry(earthRadius * 1.025, 64, 64);
+        // Add atmosphere
+        const atmosphereGeometry = new THREE.SphereGeometry(6371 * 1.025, 64, 64);
         const atmosphereMaterial = new THREE.MeshBasicMaterial({
-            color: 0x44aaff,
+            color: 0x87ceeb,
             transparent: true,
-            opacity: 0.15
+            opacity: 0.12
         });
         const atmosphere = new THREE.Mesh(atmosphereGeometry, atmosphereMaterial);
         this.scene.add(atmosphere);
@@ -559,7 +474,7 @@ class AstraeusDashboard {
         document.getElementById('debris-count').textContent = data.debris_count || '-';
         document.getElementById('collision-risk').textContent = data.collision_probability ? 
             `${(data.collision_probability * 100).toFixed(2)}%` : '-';
-        document.getElementById('last-update').textContent = new Date().toLocaleTimeString('en-US', { hour12: false });
+        document.getElementById('last-update').textContent = new Date().toLocaleTimeString();
 
         // Update system status
         const statusContainer = document.getElementById('system-status');
@@ -581,7 +496,7 @@ class AstraeusDashboard {
                 </div>
                 <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
                     <span>Last Update:</span>
-                    <span>${new Date().toLocaleTimeString('en-US', { hour12: false })}</span>
+                    <span>${new Date().toLocaleTimeString()}</span>
                 </div>
                 <div style="display: flex; justify-content: space-between;">
                     <span>Collision Risk:</span>
@@ -603,7 +518,7 @@ class AstraeusDashboard {
         
         const html = satellites.map(sat => {
             const riskClass = sat.risk_level ? sat.risk_level.toLowerCase() : 'unknown';
-            const typeIcon = sat.is_debris ? '<i class="fas fa-trash"></i>' : '<i class="fas fa-satellite"></i>';
+            const typeIcon = sat.is_debris ? 'Debris' : 'Satellite';
             
             return `
                 <div class="satellite-item" onclick="selectSatellite(${sat.id})">
@@ -669,7 +584,7 @@ class AstraeusDashboard {
         document.getElementById('detail-id').textContent = satellite.id;
         document.getElementById('detail-type').textContent = satellite.risk_assessment?.is_debris ? 'Space Debris' : 'Active Satellite';
         document.getElementById('detail-status').textContent = satellite.health_status?.status || 'Unknown';
-        document.getElementById('detail-updated').textContent = new Date(satellite.timestamp || Date.now()).toLocaleDateString() + ' ' + new Date(satellite.timestamp || Date.now()).toLocaleTimeString('en-US', { hour12: false });
+        document.getElementById('detail-updated').textContent = new Date(satellite.timestamp || Date.now()).toLocaleString();
         
         // Risk assessment
         const riskAssessment = satellite.risk_assessment || {};
@@ -801,7 +716,7 @@ class AstraeusDashboard {
                     <div class="satellite-item" onclick="selectSatellite(${sat.id})" style="cursor: pointer; border-left: 4px solid ${riskColor};">
                         <div class="satellite-header">
                             <div class="satellite-id">
-                                <i class="fas fa-satellite"></i> ${sat.name || `Satellite #${sat.id}`}
+                                ${sat.name || `Satellite #${sat.id}`}
                                 <small style="color: var(--text-secondary);">(ID: ${sat.id})</small>
                             </div>
                             <div class="risk-badge risk-${sat.risk_level.toLowerCase()}">${sat.risk_level}</div>
@@ -846,7 +761,7 @@ class AstraeusDashboard {
                 </div>
             `;
         } else {
-            listContainer.innerHTML = '<div style="text-align: center; color: var(--success-color); padding: 2rem;"><i class="fas fa-check-circle"></i> No high-risk satellites detected</div>';
+            listContainer.innerHTML = '<div style="text-align: center; color: var(--success-color); padding: 2rem;">No high-risk satellites detected</div>';
         }
         
         // Update active alerts
@@ -859,20 +774,20 @@ class AstraeusDashboard {
                     <div style="margin-bottom: 1rem;">
                         ${criticalCount > 0 ? `
                             <div style="padding: 1rem; background: rgba(220, 53, 69, 0.1); border-left: 4px solid var(--danger-color); border-radius: 4px; margin-bottom: 0.5rem;">
-                                <div style="font-weight: 600; color: var(--danger-color);"><i class="fas fa-siren-on"></i> CRITICAL ALERT</div>
+                                <div style="font-weight: 600; color: var(--danger-color);">CRITICAL ALERT</div>
                                 <div style="font-size: 0.9rem;">${criticalCount} satellites at critical risk level</div>
                             </div>
                         ` : ''}
                         ${highCount > 0 ? `
                             <div style="padding: 1rem; background: rgba(255, 193, 7, 0.1); border-left: 4px solid var(--warning-color); border-radius: 4px;">
-                                <div style="font-weight: 600; color: var(--warning-color);"><i class="fas fa-triangle-exclamation"></i> HIGH RISK</div>
+                                <div style="font-weight: 600; color: var(--warning-color);">HIGH RISK</div>
                                 <div style="font-size: 0.9rem;">${highCount} satellites at high risk level</div>
                             </div>
                         ` : ''}
                     </div>
                 `;
             } else {
-                alertsContainer.innerHTML = '<div style="text-align: center; color: var(--success-color); padding: 2rem;"><i class="fas fa-check-circle"></i> No active alerts</div>';
+                alertsContainer.innerHTML = '<div style="text-align: center; color: var(--success-color); padding: 2rem;">No active alerts</div>';
             }
         }
         
@@ -899,7 +814,7 @@ class AstraeusDashboard {
                     </div>
                     <div style="display: flex; justify-content: space-between;">
                         <span>Last Analysis:</span>
-                        <span>${new Date().toLocaleTimeString('en-US', { hour12: false })}</span>
+                        <span>${new Date().toLocaleTimeString()}</span>
                     </div>
                 </div>
             `;
@@ -926,7 +841,7 @@ class AstraeusDashboard {
                 
                 collisionWarningsContainer.innerHTML = warningsHtml;
             } else {
-                collisionWarningsContainer.innerHTML = '<div style="text-align: center; color: var(--success-color); padding: 2rem;"><i class="fas fa-check-circle"></i> No collision warnings</div>';
+                collisionWarningsContainer.innerHTML = '<div style="text-align: center; color: var(--success-color); padding: 2rem;">No collision warnings</div>';
             }
         }
     }
@@ -943,6 +858,7 @@ class AstraeusDashboard {
         // Set up periodic updates every 15 seconds
         setInterval(() => this.updateData(), 15000);
         
+        console.log('Real-time updates started (15s interval)');
     }
 
     async updateData() {
@@ -960,6 +876,7 @@ class AstraeusDashboard {
                 await this.updateSystemStatus(data);
                 
                 // Show status in console for debugging
+                console.log(`Data updated: ${data.total_objects} objects, ${data.debris_count} debris, ${(data.collision_probability * 100).toFixed(3)}% risk`);
             } else {
                 console.warn('No satellite data in response');
             }
@@ -977,15 +894,10 @@ class AstraeusDashboard {
 
     async runPrediction() {
         try {
-            this.showAlert('<i class="fas fa-rotate"></i> Running collision detection...', 'info');
+            this.showAlert('Running collision detection...', 'info');
             
             const resultContainer = document.getElementById('prediction-results');
-            resultContainer.innerHTML = `
-                <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 3rem; text-align: center;">
-                    <div class="loading" style="margin-bottom: 2rem;"></div>
-                    <p style="margin: 0; color: var(--text-secondary); font-size: 0.9rem;">Analyzing orbital data...</p>
-                </div>
-            `;
+            resultContainer.innerHTML = '<div style="text-align: center; padding: 2rem;"><div class="loading"></div><p>Analyzing orbital data...</p></div>';
             
             const response = await fetch(`${this.apiBaseUrl}/predict`, { method: 'POST' });
             const data = await response.json();
@@ -1017,7 +929,7 @@ class AstraeusDashboard {
                     </div>
                     <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
                         <span>Analysis Time:</span>
-                        <span>${new Date().toLocaleTimeString('en-US', { hour12: false })}</span>
+                        <span>${new Date().toLocaleTimeString()}</span>
                     </div>
                     <div style="display: flex; justify-content: space-between;">
                         <span>Model Accuracy:</span>
@@ -1026,7 +938,7 @@ class AstraeusDashboard {
                 </div>
             `;
 
-            this.showAlert('<i class="fas fa-check-circle"></i> Collision detection completed', 'success');
+            this.showAlert('Collision detection completed', 'success');
             
         } catch (error) {
             console.error('Prediction error:', error);
@@ -1036,17 +948,12 @@ class AstraeusDashboard {
 
     async runTrajectoryPrediction() {
         try {
-            this.showAlert('<i class="fas fa-rocket"></i> Generating trajectory predictions...', 'info');
+            this.showAlert('Generating trajectory predictions...', 'info');
             
             const resultContainer = document.getElementById('trajectory-results');
             const trajectoryContainer = document.getElementById('trajectory-container');
             
-            resultContainer.innerHTML = `
-                <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 3rem; text-align: center;">
-                    <div class="loading" style="margin-bottom: 2rem;"></div>
-                    <p style="margin: 0; color: var(--text-secondary); font-size: 0.9rem;">Calculating orbital trajectories...</p>
-                </div>
-            `;
+            resultContainer.innerHTML = '<div style="text-align: center; padding: 2rem;"><div class="loading"></div><p>Calculating orbital trajectories...</p></div>';
             
             const response = await fetch(`${this.apiBaseUrl}/trajectory-bulk`, { method: 'POST' });
             const data = await response.json();
@@ -1059,9 +966,9 @@ class AstraeusDashboard {
 
             // Store trajectory data for visualization
             this.trajectoryData = data;
-
-            // Enable download and analysis buttons
-            this.updateDownloadButtonStates();
+            console.log('Trajectory data received:', data);
+            console.log('Trajectories count:', data.trajectories_generated);
+            console.log('Predictions/satellite_trajectories:', data.predictions || data.satellite_trajectories);
 
             // Display results
             resultContainer.innerHTML = `
@@ -1086,7 +993,7 @@ class AstraeusDashboard {
                     </div>
                     <div style="display: flex; justify-content: space-between;">
                         <span>Generated At:</span>
-                        <span>${new Date().toLocaleTimeString('en-US', { hour12: false })}</span>
+                        <span>${new Date().toLocaleTimeString()}</span>
                     </div>
                 </div>
                 <div style="display: flex; gap: 0.5rem; justify-content: center; flex-wrap: wrap;">
@@ -1097,7 +1004,7 @@ class AstraeusDashboard {
             // Initialize trajectory visualization
             this.initializeTrajectoryVisualization();
             this.updateTrajectoryStatistics();
-            this.showAlert('<i class="fas fa-check-circle"></i> Trajectory predictions completed', 'success');
+            this.showAlert('Trajectory predictions completed', 'success');
             if (typeof switchToTab === 'function') {
                 switchToTab('trajectories');
             }
@@ -1112,36 +1019,27 @@ class AstraeusDashboard {
         const container = document.getElementById('trajectory-container');
         if (!container || !this.trajectoryData) return;
 
-        // Set view mode to 3D and update button states
-        this.trajectoryViewMode = '3d';
-        this.updateTrajectoryButtonStates();
-
         // Clear container and add controls overlay
         container.innerHTML = `
             <div id="trajectory-controls" style="position: absolute; top: 10px; left: 10px; z-index: 1000; background: rgba(0,0,0,0.7); padding: 10px; border-radius: 8px;">
                 <div style="margin-bottom: 5px;">
-                    <button id="focus-earth-btn" style="margin: 2px; padding: 5px 10px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer;"><i class="fas fa-earth-americas"></i> Earth</button>
-                    <button id="full-view-btn" style="margin: 2px; padding: 5px 10px; background: #ffc107; color: black; border: none; border-radius: 4px; cursor: pointer;"><i class="fas fa-magnifying-glass"></i> Full View</button>
+                    <button id="focus-earth-btn" style="margin: 2px; padding: 5px 10px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer;">🌍 Earth</button>
+                    <button id="full-view-btn" style="margin: 2px; padding: 5px 10px; background: #ffc107; color: black; border: none; border-radius: 4px; cursor: pointer;">🔭 Full View</button>
                 </div>
                 <div>
-                    <button id="prev-satellite-btn" style="margin: 2px; padding: 5px 10px; background: #6c757d; color: white; border: none; border-radius: 4px; cursor: pointer;"><i class="fas fa-arrow-left"></i> Prev</button>
-                    <button id="follow-satellite-btn" style="margin: 2px; padding: 5px 10px; background: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer;"><i class="fas fa-satellite"></i> Follow</button>
-                    <button id="next-satellite-btn" style="margin: 2px; padding: 5px 10px; background: #6c757d; color: white; border: none; border-radius: 4px; cursor: pointer;">Next <i class="fas fa-arrow-right"></i></button>
+                    <button id="prev-satellite-btn" style="margin: 2px; padding: 5px 10px; background: #6c757d; color: white; border: none; border-radius: 4px; cursor: pointer;">⬅ Prev</button>
+                    <button id="follow-satellite-btn" style="margin: 2px; padding: 5px 10px; background: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer;">🛰 Follow</button>
+                    <button id="next-satellite-btn" style="margin: 2px; padding: 5px 10px; background: #6c757d; color: white; border: none; border-radius: 4px; cursor: pointer;">Next ➡</button>
                 </div>
             </div>
-            <canvas id="trajectory-canvas" style="width: 100%; height: 100%; display: block;"></canvas>
+            <canvas id="trajectory-canvas"></canvas>
         `;
 
         const canvas = document.getElementById('trajectory-canvas');
-
-        // Ensure canvas is properly configured
-        canvas.style.width = '100%';
-        canvas.style.height = '100%';
-        canvas.style.display = 'block';
-
+        
         // Create trajectory visualization scene
         const scene = new THREE.Scene();
-        scene.background = new THREE.Color(0x000000);
+        scene.background = new THREE.Color(0x000011);
         
         const camera = new THREE.PerspectiveCamera(75, container.clientWidth / container.clientHeight, 0.1, 50000);
         const renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true });
@@ -1193,7 +1091,7 @@ class AstraeusDashboard {
             controls.dampingFactor = 0.05;
             controls.screenSpacePanning = false;
             controls.minDistance = earthRadius * 1.5;
-            controls.maxDistance = earthRadius * 10;
+            controls.maxDistance = earthRadius * 8;
             controls.target.set(0, 0, 0);
             controls.autoRotate = false;
             controls.autoRotateSpeed = 0.5;
@@ -1232,44 +1130,20 @@ class AstraeusDashboard {
         // Animation loop
         const animate = () => {
             requestAnimationFrame(animate);
-
+            
             // Smooth controls update
             if (controls) controls.update();
-
+            
             // Rotate Earth slowly
             earth.rotation.y += 0.002;
             wireframe.rotation.y += 0.002;
-
+            
             // Animate satellites along trajectories
             this.animateSatellites();
-
+            
             renderer.render(scene, camera);
         };
         animate();
-
-        // Force initial render and ensure canvas is properly sized
-        setTimeout(() => {
-            const canvas = renderer.domElement;
-            canvas.style.width = '100%';
-            canvas.style.height = '100%';
-            canvas.style.display = 'block';
-
-            // Force a resize to ensure proper sizing
-            handleResize();
-
-            // Clear any previous frame and force an immediate render
-            renderer.clear();
-            renderer.render(scene, camera);
-
-            // Force another render after a brief delay to ensure it's visible
-            setTimeout(() => {
-                renderer.render(scene, camera);
-            }, 50);
-
-            console.log('3D visualization initialized - Canvas size:', canvas.width, 'x', canvas.height);
-            console.log('Canvas in DOM:', document.body.contains(canvas));
-            console.log('Canvas visible:', canvas.offsetWidth > 0 && canvas.offsetHeight > 0);
-        }, 100);
 
         // Handle resize
         const handleResize = () => {
@@ -1286,8 +1160,8 @@ class AstraeusDashboard {
     }
 
     addTrajectoryPathsToScene(scene, earthRadius) {
-        // Generate 100 fake satellites and show only selected 10
-        this.allSatellites = this.generateFakeSatellites(100, earthRadius);
+        // Generate 100 satellite simulations and show only selected 10
+        this.allSatellites = this.generateSatelliteSimulations(100, earthRadius);
         this.selectedSatelliteIndices = Array.from({length: 10}, (_, i) => i); // Show first 10 by default
         this.satellites = []; // Reset current satellites
         
@@ -1307,7 +1181,7 @@ class AstraeusDashboard {
         this.createSatelliteSelector();
     }
 
-    generateFakeSatellites(count, earthRadius) {
+    generateSatelliteSimulations(count, earthRadius) {
         const allSats = [];
         const colors = [0xff6b6b, 0x4ecdc4, 0x45b7d1, 0x96ceb4, 0xfeca57, 0xff9ff3, 0x54a0ff, 0x00ff00, 0xffff00, 0xff00ff];
         
@@ -1576,12 +1450,7 @@ class AstraeusDashboard {
                 this.selectedSatelliteIndices.splice(index, 1);
             }
         }
-
-        // Initialize 3D visualization if not already done
-        if (!this.trajectoryScene) {
-            this.initializeTrajectoryVisualization();
-        }
-
+        
         // Update visualization
         if (this.trajectoryScene) {
             this.updateDisplayedSatellites(this.trajectoryScene.scene, 6371);
@@ -1596,12 +1465,7 @@ class AstraeusDashboard {
             const randomIndex = Math.floor(Math.random() * indices.length);
             this.selectedSatelliteIndices.push(indices.splice(randomIndex, 1)[0]);
         }
-
-        // Initialize 3D visualization if not already done
-        if (!this.trajectoryScene) {
-            this.initializeTrajectoryVisualization();
-        }
-
+        
         if (this.trajectoryScene) {
             this.updateDisplayedSatellites(this.trajectoryScene.scene, 6371);
         }
@@ -1614,14 +1478,9 @@ class AstraeusDashboard {
             .map((sat, index) => ({...sat, index}))
             .filter(sat => sat.altitude < 2000)
             .slice(0, 10);
-
+        
         this.selectedSatelliteIndices = leoSats.map(sat => sat.index);
-
-        // Initialize 3D visualization if not already done
-        if (!this.trajectoryScene) {
-            this.initializeTrajectoryVisualization();
-        }
-
+        
         if (this.trajectoryScene) {
             this.updateDisplayedSatellites(this.trajectoryScene.scene, 6371);
         }
@@ -1634,14 +1493,9 @@ class AstraeusDashboard {
             .map((sat, index) => ({...sat, index}))
             .filter(sat => sat.altitude > 25000)
             .slice(0, 10);
-
+        
         this.selectedSatelliteIndices = geoSats.map(sat => sat.index);
-
-        // Initialize 3D visualization if not already done
-        if (!this.trajectoryScene) {
-            this.initializeTrajectoryVisualization();
-        }
-
+        
         if (this.trajectoryScene) {
             this.updateDisplayedSatellites(this.trajectoryScene.scene, 6371);
         }
@@ -1650,7 +1504,7 @@ class AstraeusDashboard {
 
     toggleSatellite(satelliteIndex, isSelected) {
         const index = this.selectedSatelliteIndices.indexOf(satelliteIndex);
-
+        
         if (index > -1) {
             // Remove satellite
             this.selectedSatelliteIndices.splice(index, 1);
@@ -1667,12 +1521,7 @@ class AstraeusDashboard {
                 if (oldCheckbox) oldCheckbox.checked = false;
             }
         }
-
-        // Initialize 3D visualization if not already done
-        if (!this.trajectoryScene) {
-            this.initializeTrajectoryVisualization();
-        }
-
+        
         // Update display
         if (this.trajectoryScene) {
             this.updateDisplayedSatellites(this.trajectoryScene.scene, 6371);
@@ -1687,18 +1536,13 @@ class AstraeusDashboard {
                 this.selectedSatelliteIndices.push(randomIndex);
             }
         }
-
+        
         // Update checkboxes
         for (let i = 0; i < this.allSatellites.length; i++) {
             const checkbox = document.getElementById(`sat-${i}`);
             if (checkbox) checkbox.checked = this.selectedSatelliteIndices.includes(i);
         }
-
-        // Initialize 3D visualization if not already done
-        if (!this.trajectoryScene) {
-            this.initializeTrajectoryVisualization();
-        }
-
+        
         // Update display
         if (this.trajectoryScene) {
             this.updateDisplayedSatellites(this.trajectoryScene.scene, 6371);
@@ -1708,18 +1552,13 @@ class AstraeusDashboard {
     selectLowOrbitSatellites() {
         // Select 10 lowest orbit satellites
         this.selectedSatelliteIndices = Array.from({length: 10}, (_, i) => i);
-
+        
         // Update checkboxes
         for (let i = 0; i < this.allSatellites.length; i++) {
             const checkbox = document.getElementById(`sat-${i}`);
             if (checkbox) checkbox.checked = i < 10;
         }
-
-        // Initialize 3D visualization if not already done
-        if (!this.trajectoryScene) {
-            this.initializeTrajectoryVisualization();
-        }
-
+        
         // Update display
         if (this.trajectoryScene) {
             this.updateDisplayedSatellites(this.trajectoryScene.scene, 6371);
@@ -2251,24 +2090,16 @@ class AstraeusDashboard {
 
     // Enhanced trajectory clearing
     clearTrajectories() {
-        // Reset trajectory data and view mode
-        this.trajectoryData = null;
-        this.trajectoryViewMode = null;
-
-        // Reset button states
-        this.resetTrajectoryButtonStates();
-        this.updateDownloadButtonStates();
-
         const trajectoryContainer = document.getElementById('trajectory-container');
         const trajectoryStats = document.getElementById('trajectory-stats');
         const collisionRisk = document.getElementById('collision-risk-analysis');
-
+        
         if (trajectoryContainer) {
             trajectoryContainer.innerHTML = `
                 <div style="display: flex; align-items: center; justify-content: center; height: 100%; color: var(--text-secondary); flex-direction: column; text-align: center;">
                     <i class="fas fa-satellite-dish" style="font-size: 3rem; margin-bottom: 1rem; opacity: 0.5;"></i>
                     <h3>Orbital Trajectory Visualization</h3>
-                    <p>Click "Generate" to predict and visualize satellite trajectories in 3D</p>
+                    <p>Click "Generate New" to predict and visualize satellite trajectories in 3D</p>
                 </div>
             `;
         }
@@ -2303,7 +2134,7 @@ class AstraeusDashboard {
             trajectoriesToRemove.forEach(traj => this.scene.remove(traj));
         }
         
-        this.showAlert('<i class="fas fa-broom"></i> Trajectories cleared', 'info');
+        this.showAlert('🧹 Trajectories cleared', 'info');
     }
 
     async loadCacheStatus() {
@@ -2353,7 +2184,7 @@ class AstraeusDashboard {
         
         container.innerHTML = `
             <div style="margin-bottom: 1rem;">
-                <h4 style="margin-bottom: 0.5rem;"><i class="fas fa-chart-bar"></i> Cache Sources</h4>
+                <h4 style="margin-bottom: 0.5rem;">Cache Sources</h4>
                 <div style="background: rgba(255, 255, 255, 0.05); border-radius: 8px; overflow: hidden;">
                     ${sourcesHtml}
                 </div>
@@ -2389,53 +2220,53 @@ class AstraeusDashboard {
 
     async forceCacheUpdate() {
         try {
-            this.showAlert('<i class="fas fa-rotate"></i> Force updating cache...', 'info');
+            this.showAlert('Force updating cache...', 'info');
             
             const response = await fetch(`${this.apiBaseUrl}/cache/force-update`, { method: 'POST' });
             const data = await response.json();
             
             if (data.success) {
-                this.showAlert('<i class="fas fa-check-circle"></i> Cache updated successfully', 'success');
+                this.showAlert('Cache updated successfully', 'success');
                 // Reload cache status
                 setTimeout(() => this.loadCacheStatus(), 1000);
             } else {
-                this.showAlert('<i class="fas fa-circle-xmark"></i> Cache update failed: ' + data.error, 'danger');
+                this.showAlert('Cache update failed: ' + data.error, 'danger');
             }
         } catch (error) {
             console.error('Force cache update error:', error);
-            this.showAlert('<i class="fas fa-circle-xmark"></i> Error updating cache', 'danger');
+            this.showAlert('Error updating cache', 'danger');
         }
     }
 
     async loadHighRiskSatellites() {
         try {
-            this.showAlert('<i class="fas fa-magnifying-glass"></i> Analyzing high-risk satellites...', 'info');
+            this.showAlert('Analyzing high-risk satellites...', 'info');
             
             const response = await fetch(`${this.apiBaseUrl}/satellites/high-risk`);
             const data = await response.json();
             
             if (data.success) {
                 this.displayHighRiskSatellitesList(data.satellites, data.threat_summary);
-                this.showAlert('<i class="fas fa-check-circle"></i> High-risk analysis completed', 'success');
+                this.showAlert('High-risk analysis completed', 'success');
             } else {
-                this.showAlert('<i class="fas fa-circle-xmark"></i> Failed to load high-risk satellites: ' + data.error, 'danger');
+                this.showAlert('Failed to load high-risk satellites: ' + data.error, 'danger');
             }
             
         } catch (error) {
             console.error('Error loading high-risk satellites:', error);
-            this.showAlert('<i class="fas fa-circle-xmark"></i> Error loading high-risk satellites', 'danger');
+            this.showAlert('Error loading high-risk satellites', 'danger');
         }
     }
 
     viewCacheFiles() {
-        this.showAlert('<i class="fas fa-folder-open"></i> Cache files are stored in the tle_cache directory', 'info');
+        this.showAlert('📁 Cache files are stored in the tle_cache directory', 'info');
     }
 
     showAlert(message, type) {
         const alertContainer = document.getElementById('alert-container');
         
         alertContainer.className = `alert alert-${type}`;
-        alertContainer.innerHTML = message;
+        alertContainer.textContent = message;
         alertContainer.classList.add('show');
         
         setTimeout(() => {
@@ -2474,15 +2305,14 @@ class AstraeusDashboard {
 // Initialize dashboard when DOM is loaded
 document.addEventListener('DOMContentLoaded', () => {
     window.dashboard = new AstraeusDashboard();
-
-    // Dispatch event to notify that dashboard is ready
-    document.dispatchEvent(new Event('dashboardReady'));
-
+    
     // Load initial satellite list
     setTimeout(() => {
         window.dashboard.loadSatelliteList();
     }, 2000);
-
+    
+    console.log('Astraeus Dashboard initialized');
+    console.log('Real-time orbital collision prediction system active');
 });
 
 // Global functions for HTML template
@@ -2523,78 +2353,6 @@ function switchToTab(tabName) {
             window.dashboard.loadCacheStatus();
         } else if (tabName === 'alerts') {
             window.dashboard.loadHighRiskSatellites();
-        } else if (tabName === 'trajectories') {
-            // Auto-initialize 3D trajectory visualization when switching to trajectories tab
-            if (window.dashboard) {
-                // Check if trajectory data exists, if not, show generation prompt
-                if (window.dashboard.trajectoryData) {
-                    window.dashboard.switchTrajectoryView('3d');
-                } else {
-                    // Show message asking user to generate trajectories first
-                    const container = document.getElementById('trajectory-container');
-                    if (container) {
-                        container.innerHTML = `
-                            <div style="display: flex; align-items: center; justify-content: center; height: 100%; color: var(--text-secondary); flex-direction: column; text-align: center; padding: 2rem;">
-                                <i class="fas fa-rocket" style="font-size: 3rem; margin-bottom: 1rem; opacity: 0.5;"></i>
-                                <h3 style="margin-bottom: 1rem;">No Trajectory Data Available</h3>
-                                <p style="margin-bottom: 2rem; max-width: 400px;">Click "Generate New" to create trajectory predictions and visualize satellite orbits in 3D</p>
-                                <button onclick="runTrajectoryPrediction()" class="btn btn-primary" style="font-size: 1.1rem; padding: 1rem 2rem;">
-                                    <i class="fas fa-rocket"></i> Generate New Trajectories
-                                </button>
-                            </div>
-                        `;
-                    }
-                }
-            } else {
-                // If dashboard not ready yet, wait for it and then initialize
-                const initTrajectories = () => {
-                    if (window.dashboard) {
-                        if (window.dashboard.trajectoryData) {
-                            window.dashboard.switchTrajectoryView('3d');
-                        } else {
-                            const container = document.getElementById('trajectory-container');
-                            if (container) {
-                                container.innerHTML = `
-                                    <div style="display: flex; align-items: center; justify-content: center; height: 100%; color: var(--text-secondary); flex-direction: column; text-align: center; padding: 2rem;">
-                                        <i class="fas fa-rocket" style="font-size: 3rem; margin-bottom: 1rem; opacity: 0.5;"></i>
-                                        <h3 style="margin-bottom: 1rem;">No Trajectory Data Available</h3>
-                                        <p style="margin-bottom: 2rem; max-width: 400px;">Click "Generate New" to create trajectory predictions and visualize satellite orbits in 3D</p>
-                                        <button onclick="runTrajectoryPrediction()" class="btn btn-primary" style="font-size: 1.1rem; padding: 1rem 2rem;">
-                                            <i class="fas fa-rocket"></i> Generate New Trajectories
-                                        </button>
-                                    </div>
-                                `;
-                            }
-                        }
-                        document.removeEventListener('dashboardReady', initTrajectories);
-                    }
-                };
-                document.addEventListener('dashboardReady', initTrajectories);
-
-                // Also try after a short delay as fallback
-                setTimeout(() => {
-                    if (window.dashboard) {
-                        if (window.dashboard.trajectoryData) {
-                            window.dashboard.switchTrajectoryView('3d');
-                        } else {
-                            const container = document.getElementById('trajectory-container');
-                            if (container) {
-                                container.innerHTML = `
-                                    <div style="display: flex; align-items: center; justify-content: center; height: 100%; color: var(--text-secondary); flex-direction: column; text-align: center; padding: 2rem;">
-                                        <i class="fas fa-rocket" style="font-size: 3rem; margin-bottom: 1rem; opacity: 0.5;"></i>
-                                        <h3 style="margin-bottom: 1rem;">No Trajectory Data Available</h3>
-                                        <p style="margin-bottom: 2rem; max-width: 400px;">Click "Generate New" to create trajectory predictions and visualize satellite orbits in 3D</p>
-                                        <button onclick="runTrajectoryPrediction()" class="btn btn-primary" style="font-size: 1.1rem; padding: 1rem 2rem;">
-                                            <i class="fas fa-rocket"></i> Generate New Trajectories
-                                        </button>
-                                    </div>
-                                `;
-                            }
-                        }
-                        document.removeEventListener('dashboardReady', initTrajectories);
-                    }
-                }, 100);
-            }
         }
     }
 }

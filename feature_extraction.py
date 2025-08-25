@@ -171,7 +171,7 @@ def parse_tle_lines(lines, label=0):
         else:
             i += 1  # Not a TLE line 1, move forward
     
-    print(f"🛰️ Processed {len(data)} valid satellites from TLE data")
+    print(f"Processed {len(data)} valid satellites from TLE data")
     return pd.DataFrame(data)
 
 
@@ -192,9 +192,9 @@ def create_dataset():
             try:
                 data = parse_tle_file(os.path.join(CACHE_DIR, file), label)
                 all_data.extend(data)
-                print(f"✅ Processed {len(data)} objects from {file}")
+                print(f"Processed {len(data)} objects from {file}")
             except Exception as e:
-                print(f"❌ Error processing {file}: {e}")
+                print(f"Error processing {file}: {e}")
     
     # Fallback to regular TLE_DIR files
     if not all_data and os.path.exists(TLE_DIR):
@@ -207,17 +207,17 @@ def create_dataset():
             try:
                 data = parse_tle_file(os.path.join(TLE_DIR, file), label)
                 all_data.extend(data)
-                print(f"✅ Processed {len(data)} objects from {file}")
+                print(f"Processed {len(data)} objects from {file}")
             except Exception as e:
-                print(f"❌ Error processing {file}: {e}")
+                print(f"Error processing {file}: {e}")
 
     if not all_data:
-        print("❌ No valid TLEs found! Please run data collection first.")
+        print("No valid TLEs found! Please run data collection first.")
         return
 
     df = pd.DataFrame(all_data)
     df.to_csv(OUTPUT_FILE, index=False)
-    print(f"✅ Dataset saved to {OUTPUT_FILE}, total rows: {len(df)}")
+    print(f"Dataset saved to {OUTPUT_FILE}, total rows: {len(df)}")
     print(f"   - Active satellites: {len(df[df['label'] == 0])}")
     print(f"   - Debris objects: {len(df[df['label'] == 1])}")
 
@@ -226,13 +226,13 @@ def get_cached_dataset():
     if os.path.exists(OUTPUT_FILE):
         try:
             df = pd.read_csv(OUTPUT_FILE)
-            print(f"📊 Loaded existing dataset: {len(df)} objects")
+            print(f"Loaded existing dataset: {len(df)} objects")
             return df
         except Exception as e:
-            print(f"❌ Error loading existing dataset: {e}")
+            print(f"Error loading existing dataset: {e}")
     
     # If no existing dataset, create one
-    print("🔄 Creating new dataset from available TLE data...")
+    print("Creating new dataset from available TLE data...")
     create_dataset()
     
     # Try to load the newly created dataset
@@ -241,7 +241,7 @@ def get_cached_dataset():
             df = pd.read_csv(OUTPUT_FILE)
             return df
         except Exception as e:
-            print(f"❌ Error loading newly created dataset: {e}")
+            print(f"Error loading newly created dataset: {e}")
     
     return None
 

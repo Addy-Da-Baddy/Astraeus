@@ -63,7 +63,7 @@ def download_and_cache_tle(source):
     """Download TLE data and cache it"""
     url = TLE_URLS[source]
     try:
-        print(f"🔄 Downloading fresh TLE data for {source}...")
+        print(f"Downloading fresh TLE data for {source}...")
         r = requests.get(url, timeout=10)
         if r.status_code == 200:
             # Save to cache
@@ -77,13 +77,13 @@ def download_and_cache_tle(source):
             with open(tle_file, 'w') as f:
                 f.write(r.text)
             
-            print(f"✅ Fresh data cached for {source}")
+            print(f"Fresh data cached for {source}")
             return r.text.strip().splitlines()
         else:
-            print(f"❌ Download failed with status {r.status_code}")
+            print(f"Download failed with status {r.status_code}")
             return None
     except Exception as e:
-        print(f"❌ Download error: {e}")
+        print(f"Download error: {e}")
         return None
 
 def load_cached_tle(source):
@@ -113,7 +113,7 @@ def load_cached_tle(source):
         with open(fallback_file, 'r') as f:
             return f.read().strip().splitlines()
     
-    print(f"❌ No cached data found for {source}")
+    print(f"No cached data found for {source}")
     return None
 def get_latest_features(source="active_satellites", label=0):
     """
@@ -136,13 +136,13 @@ def get_latest_features(source="active_satellites", label=0):
     if tle_lines:
         try:
             features_df = parse_tle_lines(tle_lines, label=label)
-            print(f"✅ Processed {len(features_df)} satellites from {source}")
+            print(f"Processed {len(features_df)} satellites from {source}")
             return features_df
         except Exception as e:
-            print(f"❌ Error processing TLE data: {e}")
+            print(f"Error processing TLE data: {e}")
             return None
     
-    print(f"❌ No TLE data available for {source}")
+    print(f"No TLE data available for {source}")
     return None
 
 def get_latest_tle(source="active_satellites"):
@@ -175,7 +175,7 @@ def cleanup_old_cache():
 
 def force_download_all():
     """Force download of all TLE sources (for manual updates)"""
-    print("🔄 Force downloading all TLE sources...")
+    print("Force downloading all TLE sources...")
     for source in TLE_URLS.keys():
         download_and_cache_tle(source)
     cleanup_old_cache()
