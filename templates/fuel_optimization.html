@@ -1,0 +1,748 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fuel Optimization Dashboard - NovaGen</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard_new.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <style>
+        .fuel-dashboard {
+            padding: 2rem;
+            background: linear-gradient(135deg, #0a0a0f 0%, #1a1a2e 100%);
+            min-height: 100vh;
+            color: white;
+        }
+        
+        .fuel-header {
+            text-align: center;
+            margin-bottom: 3rem;
+        }
+        
+        .fuel-header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 0.5rem;
+            background: linear-gradient(45deg, #00ff7f, #4dd0e1);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        
+        .fuel-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 2rem;
+            margin-bottom: 2rem;
+        }
+        
+        .fuel-card {
+            background: linear-gradient(145deg, #1e1e2e, #2a2a3e);
+            border: 1px solid #333;
+            border-radius: 12px;
+            padding: 1.5rem;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+        }
+        
+        .fuel-card h3 {
+            color: #00ff7f;
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .control-panel {
+            background: linear-gradient(145deg, #1a1a2e, #2d2d4a);
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+        }
+        
+        .control-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+        
+        .input-group {
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .input-group label {
+            color: #4dd0e1;
+            font-size: 0.9rem;
+            margin-bottom: 0.3rem;
+        }
+        
+        .input-group input, .input-group select {
+            background: #2a2a3e;
+            border: 1px solid #444;
+            border-radius: 6px;
+            padding: 0.5rem;
+            color: white;
+            font-size: 0.9rem;
+        }
+        
+        .input-group input:focus, .input-group select:focus {
+            outline: none;
+            border-color: #00ff7f;
+            box-shadow: 0 0 10px rgba(0,255,127,0.3);
+        }
+        
+        .btn {
+            background: linear-gradient(45deg, #00ff7f, #4dd0e1);
+            border: none;
+            border-radius: 8px;
+            padding: 0.75rem 1.5rem;
+            color: #000;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(0,255,127,0.4);
+        }
+        
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+        
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 1rem;
+        }
+        
+        .metric-card {
+            background: linear-gradient(145deg, #2a2a3e, #1e1e2e);
+            border-radius: 8px;
+            padding: 1rem;
+            text-align: center;
+            border: 1px solid #333;
+        }
+        
+        .metric-value {
+            font-size: 1.8rem;
+            font-weight: bold;
+            color: #00ff7f;
+            margin-bottom: 0.25rem;
+        }
+        
+        .metric-label {
+            font-size: 0.8rem;
+            color: #aaa;
+            text-transform: uppercase;
+        }
+        
+        .chart-container {
+            height: 400px;
+            background: #1e1e2e;
+            border-radius: 8px;
+            margin-top: 1rem;
+        }
+        
+        .status-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 0.5rem;
+        }
+        
+        .status-running {
+            background: #00ff7f;
+            animation: pulse 2s infinite;
+        }
+        
+        .status-stopped {
+            background: #dc3545;
+        }
+        
+        .status-warning {
+            background: #ffc107;
+        }
+        
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+        
+        .log-container {
+            background: #1a1a1a;
+            border: 1px solid #333;
+            border-radius: 8px;
+            height: 200px;
+            overflow-y: auto;
+            padding: 1rem;
+            font-family: 'Courier New', monospace;
+            font-size: 0.8rem;
+        }
+        
+        .log-entry {
+            margin-bottom: 0.5rem;
+            padding: 0.25rem;
+            border-radius: 4px;
+        }
+        
+        .log-info {
+            color: #4dd0e1;
+        }
+        
+        .log-success {
+            color: #00ff7f;
+        }
+        
+        .log-warning {
+            color: #ffc107;
+        }
+        
+        .log-error {
+            color: #dc3545;
+        }
+        
+        .propulsion-comparison {
+            overflow-x: auto;
+        }
+        
+        .comparison-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 1rem;
+        }
+        
+        .comparison-table th,
+        .comparison-table td {
+            padding: 0.75rem;
+            text-align: left;
+            border-bottom: 1px solid #333;
+        }
+        
+        .comparison-table th {
+            background: #2a2a3e;
+            color: #00ff7f;
+            font-weight: bold;
+        }
+        
+        .comparison-table tr:hover {
+            background: rgba(0,255,127,0.1);
+        }
+        
+        .constellation-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 0.5rem;
+            margin-top: 1rem;
+        }
+        
+        .satellite-card {
+            background: #2a2a3e;
+            border: 1px solid #444;
+            border-radius: 6px;
+            padding: 0.75rem;
+            text-align: center;
+            font-size: 0.8rem;
+        }
+        
+        .satellite-id {
+            font-weight: bold;
+            color: #4dd0e1;
+            margin-bottom: 0.25rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="fuel-dashboard">
+        <div class="fuel-header">
+            <h1><i class="fas fa-rocket"></i> Real-Time Fuel Optimization Dashboard</h1>
+            <p>Advanced satellite fuel management and mission optimization</p>
+        </div>
+
+        <!-- Mission Control Panel -->
+        <div class="control-panel">
+            <h3><i class="fas fa-cogs"></i> Mission Parameters</h3>
+            <div class="control-row">
+                <div class="input-group">
+                    <label>Initial Altitude (km)</label>
+                    <input type="number" id="initialAltitude" value="400" min="200" max="2000">
+                </div>
+                <div class="input-group">
+                    <label>Target Altitude (km)</label>
+                    <input type="number" id="targetAltitude" value="800" min="300" max="3000">
+                </div>
+                <div class="input-group">
+                    <label>Max Fuel Mass (kg)</label>
+                    <input type="number" id="maxFuelMass" value="100" min="10" max="500">
+                </div>
+                <div class="input-group">
+                    <label>Satellite Mass (kg)</label>
+                    <input type="number" id="satelliteMass" value="1000" min="100" max="5000">
+                </div>
+            </div>
+            <div class="control-row">
+                <div class="input-group">
+                    <label>Optimization Priority</label>
+                    <select id="optimizationPriority">
+                        <option value="fuel">Fuel Efficiency</option>
+                        <option value="time">Time Efficiency</option>
+                        <option value="mass">Mass Efficiency</option>
+                        <option value="balanced">Balanced</option>
+                    </select>
+                </div>
+                <div class="input-group">
+                    <label>Max Power (W)</label>
+                    <input type="number" id="maxPower" value="5000" min="1000" max="10000">
+                </div>
+                <div class="input-group">
+                    <label>Mission Duration (hours)</label>
+                    <input type="number" id="missionDuration" value="24" min="1" max="168">
+                </div>
+                <div class="input-group">
+                    <label></label>
+                    <button class="btn" onclick="optimizeMission()" id="optimizeBtn">
+                        <i class="fas fa-rocket"></i> Optimize Mission
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div class="fuel-grid">
+            <!-- Real-Time Metrics -->
+            <div class="fuel-card">
+                <h3><i class="fas fa-tachometer-alt"></i> Real-Time Metrics</h3>
+                <div class="metrics-grid">
+                    <div class="metric-card">
+                        <div class="metric-value" id="fuelMass">--</div>
+                        <div class="metric-label">Fuel Mass (kg)</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-value" id="powerLevel">--</div>
+                        <div class="metric-label">Power Level (%)</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-value" id="altitude">--</div>
+                        <div class="metric-label">Altitude (km)</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-value" id="efficiency">--</div>
+                        <div class="metric-label">Efficiency (%)</div>
+                    </div>
+                </div>
+                <div style="margin-top: 1rem; text-align: center;">
+                    <span class="status-indicator" id="statusIndicator"></span>
+                    <span id="optimizationStatus">Stopped</span>
+                </div>
+                <button class="btn" onclick="startRealTimeOptimization()" id="realtimeBtn" style="width: 100%; margin-top: 1rem;">
+                    <i class="fas fa-play"></i> Start Real-Time Optimization
+                </button>
+            </div>
+
+            <!-- Mission Results -->
+            <div class="fuel-card">
+                <h3><i class="fas fa-chart-line"></i> Optimization Results</h3>
+                <div id="optimizationResults">
+                    <p style="text-align: center; color: #666; padding: 2rem;">
+                        Click "Optimize Mission" to see results
+                    </p>
+                </div>
+            </div>
+
+            <!-- Propulsion Comparison -->
+            <div class="fuel-card">
+                <h3><i class="fas fa-engine"></i> Propulsion Systems</h3>
+                <button class="btn" onclick="comparePropulsion()" style="margin-bottom: 1rem;">
+                    <i class="fas fa-balance-scale"></i> Compare Systems
+                </button>
+                <div class="propulsion-comparison" id="propulsionComparison">
+                    <p style="text-align: center; color: #666;">
+                        Click "Compare Systems" to analyze propulsion options
+                    </p>
+                </div>
+            </div>
+
+            <!-- Constellation Optimization -->
+            <div class="fuel-card">
+                <h3><i class="fas fa-satellite"></i> Constellation Deployment</h3>
+                <div style="margin-bottom: 1rem;">
+                    <label style="color: #4dd0e1; margin-right: 1rem;">Satellites:</label>
+                    <input type="number" id="numSatellites" value="6" min="2" max="12" style="width: 80px; background: #2a2a3e; border: 1px solid #444; color: white; padding: 0.25rem;">
+                    <button class="btn" onclick="optimizeConstellation()" style="margin-left: 1rem;">
+                        <i class="fas fa-satellite-dish"></i> Optimize
+                    </button>
+                </div>
+                <div id="constellationResults">
+                    <p style="text-align: center; color: #666;">
+                        Configure and optimize satellite constellation deployment
+                    </p>
+                </div>
+            </div>
+
+            <!-- Performance Charts -->
+            <div class="fuel-card" style="grid-column: span 2;">
+                <h3><i class="fas fa-chart-area"></i> Performance Analytics</h3>
+                <div class="chart-container" id="performanceChart"></div>
+            </div>
+
+            <!-- Activity Log -->
+            <div class="fuel-card">
+                <h3><i class="fas fa-list"></i> Activity Log</h3>
+                <div class="log-container" id="activityLog">
+                    <div class="log-entry log-info">[INFO] Fuel optimization dashboard initialized</div>
+                    <div class="log-entry log-info">[INFO] Ready for mission optimization</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let realTimeInterval = null;
+        let performanceData = {
+            time: [],
+            fuel: [],
+            power: [],
+            efficiency: []
+        };
+
+        function addLogEntry(type, message) {
+            const log = document.getElementById('activityLog');
+            const entry = document.createElement('div');
+            entry.className = `log-entry log-${type}`;
+            entry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            log.appendChild(entry);
+            log.scrollTop = log.scrollHeight;
+        }
+
+        async function optimizeMission() {
+            const btn = document.getElementById('optimizeBtn');
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Optimizing...';
+            
+            addLogEntry('info', 'Starting mission optimization...');
+
+            const data = {
+                initial_altitude: parseFloat(document.getElementById('initialAltitude').value),
+                target_altitude: parseFloat(document.getElementById('targetAltitude').value),
+                max_fuel_mass: parseFloat(document.getElementById('maxFuelMass').value),
+                max_total_mass: parseFloat(document.getElementById('satelliteMass').value),
+                max_power: parseFloat(document.getElementById('maxPower').value),
+                max_mission_time: parseFloat(document.getElementById('missionDuration').value) * 3600,
+                priority: document.getElementById('optimizationPriority').value
+            };
+
+            try {
+                const response = await fetch('/api/fuel/optimize-mission', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+
+                const result = await response.json();
+                
+                if (result.success) {
+                    displayOptimizationResults(result.optimization_result);
+                    addLogEntry('success', `Mission optimized successfully using ${result.optimization_result.propulsion_system.name}`);
+                } else {
+                    addLogEntry('error', `Optimization failed: ${result.error}`);
+                }
+            } catch (error) {
+                addLogEntry('error', `Network error: ${error.message}`);
+            }
+
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-rocket"></i> Optimize Mission';
+        }
+
+        function displayOptimizationResults(result) {
+            const container = document.getElementById('optimizationResults');
+            container.innerHTML = `
+                <div style="margin-bottom: 1rem;">
+                    <strong style="color: #00ff7f;">Propulsion System:</strong><br>
+                    ${result.propulsion_system.name}<br>
+                    <small>Type: ${result.propulsion_system.type}</small>
+                </div>
+                <div class="metrics-grid">
+                    <div class="metric-card">
+                        <div class="metric-value">${result.fuel_consumption.fuel_mass.toFixed(2)}</div>
+                        <div class="metric-label">Fuel (kg)</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-value">${result.trajectory.total_delta_v.toFixed(3)}</div>
+                        <div class="metric-label">Delta-V (km/s)</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-value">${(result.trajectory.total_time / 3600).toFixed(1)}</div>
+                        <div class="metric-label">Time (hours)</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-value">${result.propulsion_system.efficiency.toFixed(3)}</div>
+                        <div class="metric-label">Efficiency</div>
+                    </div>
+                </div>
+            `;
+        }
+
+        async function comparePropulsion() {
+            addLogEntry('info', 'Comparing propulsion systems...');
+
+            const data = {
+                delta_v: 2.0,
+                satellite_mass: parseFloat(document.getElementById('satelliteMass').value)
+            };
+
+            try {
+                const response = await fetch('/api/fuel/compare-propulsion', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+
+                const result = await response.json();
+                
+                if (result.success) {
+                    displayPropulsionComparison(result.comparison);
+                    addLogEntry('success', `Compared ${result.comparison.length} propulsion systems`);
+                } else {
+                    addLogEntry('error', `Comparison failed: ${result.error}`);
+                }
+            } catch (error) {
+                addLogEntry('error', `Network error: ${error.message}`);
+            }
+        }
+
+        function displayPropulsionComparison(comparison) {
+            const container = document.getElementById('propulsionComparison');
+            let html = '<table class="comparison-table"><thead><tr><th>System</th><th>Fuel (kg)</th><th>Power (W)</th><th>Efficiency</th></tr></thead><tbody>';
+            
+            comparison.forEach(system => {
+                html += `
+                    <tr>
+                        <td><strong>${system.display_name}</strong><br><small>${system.type}</small></td>
+                        <td>${system.fuel_mass.toFixed(2)}</td>
+                        <td>${system.power_consumption.toFixed(0)}</td>
+                        <td>${(system.efficiency * 100).toFixed(1)}%</td>
+                    </tr>
+                `;
+            });
+            
+            html += '</tbody></table>';
+            container.innerHTML = html;
+        }
+
+        async function startRealTimeOptimization() {
+            const btn = document.getElementById('realtimeBtn');
+            
+            if (realTimeInterval) {
+                // Stop optimization
+                clearInterval(realTimeInterval);
+                realTimeInterval = null;
+                btn.innerHTML = '<i class="fas fa-play"></i> Start Real-Time Optimization';
+                document.getElementById('statusIndicator').className = 'status-indicator status-stopped';
+                document.getElementById('optimizationStatus').textContent = 'Stopped';
+                addLogEntry('warning', 'Real-time optimization stopped');
+                return;
+            }
+
+            // Start optimization
+            btn.innerHTML = '<i class="fas fa-stop"></i> Stop Real-Time Optimization';
+            document.getElementById('statusIndicator').className = 'status-indicator status-running';
+            document.getElementById('optimizationStatus').textContent = 'Running';
+            addLogEntry('success', 'Real-time optimization started');
+
+            // Initialize optimizer
+            const data = {
+                initial_altitude: parseFloat(document.getElementById('initialAltitude').value),
+                target_altitude: parseFloat(document.getElementById('targetAltitude').value),
+                max_fuel_mass: parseFloat(document.getElementById('maxFuelMass').value),
+                min_fuel_mass: 15.0,
+                min_power_level: 0.3
+            };
+
+            try {
+                await fetch('/api/fuel/realtime/start', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+
+                // Start polling for metrics
+                realTimeInterval = setInterval(updateRealTimeMetrics, 2000);
+            } catch (error) {
+                addLogEntry('error', `Failed to start optimization: ${error.message}`);
+                btn.innerHTML = '<i class="fas fa-play"></i> Start Real-Time Optimization';
+            }
+        }
+
+        async function updateRealTimeMetrics() {
+            try {
+                const response = await fetch('/api/fuel/realtime/status');
+                const result = await response.json();
+                
+                if (result.success) {
+                    const metrics = result.metrics;
+                    
+                    document.getElementById('fuelMass').textContent = metrics.current_fuel_mass.toFixed(1);
+                    document.getElementById('powerLevel').textContent = (metrics.current_power_level * 100).toFixed(1);
+                    document.getElementById('altitude').textContent = metrics.orbital_altitude.toFixed(1);
+                    document.getElementById('efficiency').textContent = (metrics.performance_score * 100).toFixed(1);
+                    
+                    // Update performance chart
+                    updatePerformanceChart(metrics);
+                    
+                    // Check for constraint violations
+                    if (metrics.constraint_violations.length > 0) {
+                        document.getElementById('statusIndicator').className = 'status-indicator status-warning';
+                        addLogEntry('warning', `Constraint violations: ${metrics.constraint_violations.join(', ')}`);
+                    }
+                }
+            } catch (error) {
+                console.error('Failed to update metrics:', error);
+            }
+        }
+
+        function updatePerformanceChart(metrics) {
+            const currentTime = new Date().toLocaleTimeString();
+            
+            performanceData.time.push(currentTime);
+            performanceData.fuel.push(metrics.current_fuel_mass);
+            performanceData.power.push(metrics.current_power_level * 100);
+            performanceData.efficiency.push(metrics.performance_score * 100);
+            
+            // Keep only last 20 data points
+            if (performanceData.time.length > 20) {
+                performanceData.time.shift();
+                performanceData.fuel.shift();
+                performanceData.power.shift();
+                performanceData.efficiency.shift();
+            }
+            
+            const traces = [
+                {
+                    x: performanceData.time,
+                    y: performanceData.fuel,
+                    name: 'Fuel Mass (kg)',
+                    type: 'scatter',
+                    line: { color: '#00ff7f' }
+                },
+                {
+                    x: performanceData.time,
+                    y: performanceData.power,
+                    name: 'Power Level (%)',
+                    type: 'scatter',
+                    yaxis: 'y2',
+                    line: { color: '#4dd0e1' }
+                },
+                {
+                    x: performanceData.time,
+                    y: performanceData.efficiency,
+                    name: 'Efficiency (%)',
+                    type: 'scatter',
+                    yaxis: 'y2',
+                    line: { color: '#ffc107' }
+                }
+            ];
+            
+            const layout = {
+                title: 'Real-Time Performance Metrics',
+                paper_bgcolor: '#1e1e2e',
+                plot_bgcolor: '#1e1e2e',
+                font: { color: 'white' },
+                xaxis: { color: 'white' },
+                yaxis: { 
+                    title: 'Fuel Mass (kg)',
+                    color: 'white',
+                    side: 'left'
+                },
+                yaxis2: {
+                    title: 'Percentage (%)',
+                    color: 'white',
+                    overlaying: 'y',
+                    side: 'right'
+                },
+                margin: { t: 40, r: 60, b: 40, l: 60 }
+            };
+            
+            Plotly.newPlot('performanceChart', traces, layout, { responsive: true });
+        }
+
+        async function optimizeConstellation() {
+            const numSatellites = parseInt(document.getElementById('numSatellites').value);
+            addLogEntry('info', `Optimizing constellation with ${numSatellites} satellites...`);
+
+            const data = {
+                num_satellites: numSatellites,
+                initial_altitude: parseFloat(document.getElementById('initialAltitude').value),
+                target_altitude: parseFloat(document.getElementById('targetAltitude').value),
+                max_fuel_mass: parseFloat(document.getElementById('maxFuelMass').value) / 2,
+                priority: document.getElementById('optimizationPriority').value
+            };
+
+            try {
+                const response = await fetch('/api/fuel/constellation', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+
+                const result = await response.json();
+                
+                if (result.success) {
+                    displayConstellationResults(result.constellation);
+                    addLogEntry('success', `Constellation optimized: ${result.constellation.total_fuel_consumption.toFixed(2)}kg total fuel`);
+                } else {
+                    addLogEntry('error', `Constellation optimization failed: ${result.error}`);
+                }
+            } catch (error) {
+                addLogEntry('error', `Network error: ${error.message}`);
+            }
+        }
+
+        function displayConstellationResults(constellation) {
+            const container = document.getElementById('constellationResults');
+            
+            let html = `
+                <div style="margin-bottom: 1rem;">
+                    <strong>Total Fuel: ${constellation.total_fuel_consumption.toFixed(2)} kg</strong><br>
+                    <small>Delta-V: ${constellation.total_delta_v.toFixed(3)} km/s | Avg Time: ${(constellation.average_mission_time / 3600).toFixed(1)}h</small>
+                </div>
+                <div class="constellation-grid">
+            `;
+            
+            constellation.satellites.forEach(sat => {
+                html += `
+                    <div class="satellite-card">
+                        <div class="satellite-id">Sat ${sat.satellite_id}</div>
+                        <div>${sat.fuel_consumption.toFixed(1)}kg</div>
+                        <div style="font-size: 0.7rem; color: #888;">${sat.propulsion_system}</div>
+                    </div>
+                `;
+            });
+            
+            html += '</div>';
+            container.innerHTML = html;
+        }
+
+        // Initialize dashboard
+        document.addEventListener('DOMContentLoaded', function() {
+            addLogEntry('success', 'Dashboard loaded successfully');
+            
+            // Initialize empty performance chart
+            const layout = {
+                title: 'Real-Time Performance Metrics',
+                paper_bgcolor: '#1e1e2e',
+                plot_bgcolor: '#1e1e2e',
+                font: { color: 'white' },
+                xaxis: { color: 'white' },
+                yaxis: { color: 'white' },
+                margin: { t: 40, r: 40, b: 40, l: 40 }
+            };
+            
+            Plotly.newPlot('performanceChart', [], layout, { responsive: true });
+        });
+    </script>
+</body>
+</html>

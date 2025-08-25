@@ -18,6 +18,21 @@ from predict_collision_risk import CollisionRiskPredictor
 from data_collection import get_latest_features, get_cache_status
 from data_viz import DataVisualization
 
+# Import fuel optimization components
+try:
+    import sys
+    import os
+    sys.path.append(os.path.join(os.path.dirname(__file__), 'fuel_opt'))
+    from fuel_opt import (
+        FuelOptimizer, MissionRequirements, 
+        RealTimeOptimizer, RealTimeConstraints,
+        OrbitalElements, PropulsionModel
+    )
+    fuel_optimization_available = True
+except ImportError as e:
+    print(f"Fuel optimization not available: {e}")
+    fuel_optimization_available = False
+
 def convert_numpy_types(obj):
     """Convert numpy types to native Python types for JSON serialization"""
     if isinstance(obj, np.integer):
@@ -45,6 +60,8 @@ DEMO_CREDENTIALS = {
 
 # Global variables for real-time data
 predictor = None
+fuel_optimizer = None
+realtime_optimizer = None
 latest_data = {
     'timestamp': None,
     'total_objects': 0,
@@ -181,6 +198,13 @@ def dashboard():
     if not session.get('authenticated'):
         return redirect(url_for('login_page'))
     return render_template('dashboard_new.html')
+
+@app.route('/fuel-optimization')
+def fuel_optimization_dashboard():
+    """Serve the fuel optimization dashboard (protected route)"""
+    if not session.get('authenticated'):
+        return redirect(url_for('login_page'))
+    return render_template('fuel_optimization.html')
 
 @app.route('/api/status')
 def api_status():
@@ -1178,6 +1202,270 @@ def get_correlation_heatmap():
             'success': False,
             'error': str(e)
         }), 500
+
+# ============================================================================
+# FUEL OPTIMIZATION API ROUTES
+# ============================================================================
+
+@app.route('/api/fuel/optimize-mission', methods=['POST'])
+def api_optimize_mission():
+    """Optimize a fuel-efficient mission"""
+    try:
+        if not fuel_optimization_available:
+            return jsonify({'error': 'Fuel optimization not available'}), 503
+        
+        data = request.get_json()
+        
+        # Create mission requirements
+        requirements = MissionRequirements(
+            initial_altitude=data.get('initial_altitude', 400.0),
+            target_altitude=data.get('target_altitude', 800.0),
+            max_mission_time=data.get('max_mission_time', 86400.0),
+            max_fuel_mass=data.get('max_fuel_mass', 100.0),
+            max_total_mass=data.get('max_total_mass', 1000.0),
+            max_power=data.get('max_power', 5000.0),
+            optimization_priority=data.get('priority', 'fuel')
+        )
+        
+        # Initialize optimizer if needed
+        global fuel_optimizer
+        if fuel_optimizer is None:
+            fuel_optimizer = FuelOptimizer()
+        
+        # Optimize mission
+        result = fuel_optimizer.optimize_mission(requirements)
+        
+        # Convert result to JSON-serializable format
+        response_data = {
+            'success': True,
+            'optimization_result': {
+                'propulsion_system': {
+                    'name': result.propulsion_system.name,
+                    'type': result.propulsion_system.propulsion_type.value,
+                    'thrust': float(result.propulsion_system.thrust),
+                    'specific_impulse': float(result.propulsion_system.specific_impulse),
+                    'efficiency': float(result.propulsion_system.efficiency)
+                },
+                'trajectory': {
+                    'total_delta_v': float(result.trajectory.total_delta_v),
+                    'total_time': float(result.trajectory.total_time),
+                    'optimization_method': result.trajectory.optimization_method,
+                    'segments': len(result.trajectory.segments)
+                },
+                'fuel_consumption': {
+                    'fuel_mass': float(result.fuel_consumption.fuel_mass),
+                    'burn_time': float(result.fuel_consumption.burn_time),
+                    'energy_consumed': float(result.fuel_consumption.energy_consumed)
+                },
+                'mission_summary': convert_numpy_types(result.mission_summary),
+                'optimization_metrics': convert_numpy_types(result.optimization_metrics)
+            },
+            'timestamp': datetime.now().isoformat()
+        }
+        
+        return jsonify(response_data)
+        
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/fuel/compare-propulsion', methods=['POST'])
+def api_compare_propulsion():
+    """Compare different propulsion systems"""
+    try:
+        if not fuel_optimization_available:
+            return jsonify({'error': 'Fuel optimization not available'}), 503
+        
+        data = request.get_json()
+        
+        # Initialize propulsion model
+        propulsion_model = PropulsionModel()
+        
+        # Mission parameters
+        delta_v = data.get('delta_v', 2.0)  # km/s
+        satellite_mass = data.get('satellite_mass', 1000.0)  # kg
+        
+        # Compare all available propulsion systems
+        comparison_results = []
+        for system_name, system in propulsion_model.propulsion_systems.items():
+            consumption = propulsion_model.calculate_fuel_consumption(
+                system, delta_v, satellite_mass
+            )
+            
+            comparison_results.append({
+                'system_name': system_name,
+                'display_name': system.name,
+                'type': system.propulsion_type.value,
+                'thrust': float(system.thrust),
+                'specific_impulse': float(system.specific_impulse),
+                'power_consumption': float(system.power_consumption),
+                'efficiency': float(system.efficiency),
+                'fuel_mass': float(consumption.fuel_mass),
+                'burn_time': float(consumption.burn_time),
+                'energy_consumed': float(consumption.energy_consumed)
+            })
+        
+        return jsonify({
+            'success': True,
+            'comparison': comparison_results,
+            'parameters': {
+                'delta_v': delta_v,
+                'satellite_mass': satellite_mass
+            }
+        })
+        
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/fuel/realtime/start', methods=['POST'])
+def api_start_realtime_optimization():
+    """Start real-time fuel optimization"""
+    try:
+        if not fuel_optimization_available:
+            return jsonify({'error': 'Fuel optimization not available'}), 503
+        
+        data = request.get_json()
+        
+        # Create mission requirements
+        requirements = MissionRequirements(
+            initial_altitude=data.get('initial_altitude', 400.0),
+            target_altitude=data.get('target_altitude', 800.0),
+            max_mission_time=data.get('max_mission_time', 86400.0),
+            max_fuel_mass=data.get('max_fuel_mass', 100.0),
+            max_total_mass=data.get('max_total_mass', 1000.0),
+            max_power=data.get('max_power', 5000.0),
+            optimization_priority=data.get('priority', 'fuel')
+        )
+        
+        # Create real-time constraints
+        constraints = RealTimeConstraints(
+            min_fuel_mass=data.get('min_fuel_mass', 15.0),
+            min_power_level=data.get('min_power_level', 0.3),
+            optimization_interval=data.get('optimization_interval', 60.0),
+            constraint_check_interval=data.get('constraint_check_interval', 10.0)
+        )
+        
+        # Initialize real-time optimizer
+        global realtime_optimizer
+        realtime_optimizer = RealTimeOptimizer(requirements, constraints)
+        
+        return jsonify({
+            'success': True,
+            'message': 'Real-time optimization initialized',
+            'optimizer_id': id(realtime_optimizer)
+        })
+        
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/fuel/realtime/status')
+def api_realtime_status():
+    """Get real-time optimization status"""
+    try:
+        if realtime_optimizer is None:
+            return jsonify({'error': 'Real-time optimizer not initialized'}), 404
+        
+        # Generate simulated metrics for demo
+        from datetime import datetime
+        import random
+        
+        current_time = datetime.now()
+        metrics = {
+            'current_fuel_mass': round(random.uniform(20.0, 80.0), 2),
+            'current_power_level': round(random.uniform(0.4, 0.9), 3),
+            'orbital_altitude': round(random.uniform(450.0, 550.0), 1),
+            'collision_risk': round(random.uniform(1e-7, 1e-5), 8),
+            'temperature': round(random.uniform(280.0, 320.0), 1),
+            'communication_quality': round(random.uniform(0.7, 0.95), 3),
+            'optimization_status': random.choice(['running', 'converged', 'constrained']),
+            'constraint_violations': [],
+            'performance_score': round(random.uniform(0.7, 0.95), 3),
+            'timestamp': current_time.isoformat(),
+            'last_optimization_time': (current_time).isoformat(),
+            'execution_time': round(random.uniform(0.1, 2.5), 3),
+            'iterations': random.randint(10, 50)
+        }
+        
+        # Add constraint violations randomly
+        if metrics['current_fuel_mass'] < 25.0:
+            metrics['constraint_violations'].append('fuel_low')
+        if metrics['current_power_level'] < 0.5:
+            metrics['constraint_violations'].append('power_low')
+        if metrics['collision_risk'] > 5e-6:
+            metrics['constraint_violations'].append('collision_risk')
+        
+        return jsonify({
+            'success': True,
+            'metrics': metrics,
+            'optimizer_active': True
+        })
+        
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/fuel/constellation', methods=['POST'])
+def api_optimize_constellation():
+    """Optimize constellation deployment"""
+    try:
+        if not fuel_optimization_available:
+            return jsonify({'error': 'Fuel optimization not available'}), 503
+        
+        data = request.get_json()
+        
+        # Create mission requirements
+        requirements = MissionRequirements(
+            initial_altitude=data.get('initial_altitude', 400.0),
+            target_altitude=data.get('target_altitude', 600.0),
+            max_mission_time=data.get('max_mission_time', 86400.0),
+            max_fuel_mass=data.get('max_fuel_mass', 50.0),
+            max_total_mass=data.get('max_total_mass', 500.0),
+            max_power=data.get('max_power', 2000.0),
+            optimization_priority=data.get('priority', 'fuel')
+        )
+        
+        # Constellation configuration
+        constellation_config = {
+            'num_satellites': data.get('num_satellites', 6),
+            'deployment_altitude': data.get('deployment_altitude', 550.0),
+            'spacing_angle': data.get('spacing_angle', 60.0)
+        }
+        
+        # Initialize optimizer if needed
+        global fuel_optimizer
+        if fuel_optimizer is None:
+            fuel_optimizer = FuelOptimizer()
+        
+        # Optimize constellation
+        results = fuel_optimizer.optimize_constellation_deployment(
+            constellation_config, requirements
+        )
+        
+        # Process results
+        constellation_data = {
+            'total_satellites': len(results),
+            'total_fuel_consumption': sum(r.fuel_consumption.fuel_mass for r in results),
+            'total_delta_v': sum(r.trajectory.total_delta_v for r in results),
+            'average_mission_time': sum(r.trajectory.total_time for r in results) / len(results),
+            'satellites': []
+        }
+        
+        for i, result in enumerate(results):
+            constellation_data['satellites'].append({
+                'satellite_id': i + 1,
+                'propulsion_system': result.propulsion_system.name,
+                'fuel_consumption': float(result.fuel_consumption.fuel_mass),
+                'delta_v': float(result.trajectory.total_delta_v),
+                'mission_time': float(result.trajectory.total_time),
+                'efficiency_score': float(result.optimization_metrics.get('efficiency_score', 0.8))
+            })
+        
+        return jsonify({
+            'success': True,
+            'constellation': constellation_data,
+            'configuration': constellation_config
+        })
+        
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 if __name__ == '__main__':
     print("Starting Astraeus Web Demo...")
