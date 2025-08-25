@@ -803,6 +803,116 @@
         ::-webkit-scrollbar-thumb:hover {
             background: var(--text-secondary);
         }
+
+        /* Metrics Tab Styles */
+        .metrics-category-btn {
+            padding: 0.5rem 1rem;
+            background: transparent;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            color: var(--text-secondary);
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .metrics-category-btn:hover {
+            background: rgba(0, 123, 255, 0.1);
+            border-color: var(--primary-color);
+            color: var(--primary-color);
+        }
+
+        .metrics-category-btn.active {
+            background: var(--primary-color);
+            border-color: var(--primary-color);
+            color: white;
+        }
+
+        .metrics-category {
+            display: none;
+        }
+
+        .metrics-category.active {
+            display: block;
+        }
+
+        .plot-container {
+            padding: 1rem;
+            background: var(--card-bg);
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+        }
+
+        .plot-item {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 0.5rem;
+            text-align: center;
+        }
+
+        .plot-item h5 {
+            margin: 0 0 0.5rem 0;
+            font-size: 0.9rem;
+            color: var(--text-primary);
+        }
+
+        .plot-item img {
+            transition: transform 0.3s ease;
+        }
+
+        .plot-item img:hover {
+            transform: scale(1.02);
+        }
+
+        .metric-card {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 1rem;
+        }
+
+        .metric-card h4 {
+            margin: 0 0 1rem 0;
+            color: var(--text-primary);
+            font-size: 1.1rem;
+        }
+
+        /* Image Modal Styles */
+        .image-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.9);
+            z-index: 10000;
+            cursor: pointer;
+        }
+
+        .image-modal-content {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            max-width: 95%;
+            max-height: 95%;
+            border-radius: 8px;
+        }
+
+        .image-modal-close {
+            position: absolute;
+            top: 20px;
+            right: 30px;
+            color: white;
+            font-size: 2rem;
+            cursor: pointer;
+            z-index: 10001;
+        }
     </style>
 </head>
 <body>
@@ -853,6 +963,10 @@
                 <a href="#" class="nav-item" onclick="switchToTab('trajectories')">
                     <i class="fas fa-route"></i>
                     <span>Trajectories</span>
+                </a>
+                <a href="#" class="nav-item" onclick="switchToTab('trained-models')">
+                    <i class="fas fa-brain"></i>
+                    <span>Trained Models</span>
                 </a>
                 <a href="#" class="nav-item" onclick="switchToTab('alerts')">
                     <i class="fas fa-exclamation-triangle"></i>
@@ -1248,6 +1362,238 @@
                         <div id="collision-risk-analysis">
                             <div style="text-align: center; padding: 2rem; color: var(--text-secondary);">
                                 Generate trajectories to analyze collision risks
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Trained Models Tab -->
+            <div id="trained-models-tab" class="tab-content">
+                <h2>Trained Model Metrics & Visualizations</h2>
+                
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">Training Metrics Dashboard</h3>
+                        <div style="display: flex; gap: 0.5rem;">
+                            <button class="btn btn-sm btn-secondary" onclick="refreshMetrics()">
+                                <i class="fas fa-sync"></i> Refresh
+                            </button>
+                            <button class="btn btn-sm btn-primary" onclick="downloadAllMetrics()">
+                                <i class="fas fa-download"></i> Download All
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Metrics Categories -->
+                    <div class="metrics-nav" style="border-bottom: 1px solid var(--border-color); padding: 1rem; background: var(--card-bg);">
+                        <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
+                            <button class="metrics-category-btn active" onclick="showMetricsCategory('overview')" data-category="overview">
+                                <i class="fas fa-chart-pie"></i> Overview
+                            </button>
+                            <button class="metrics-category-btn" onclick="showMetricsCategory('detection')" data-category="detection">
+                                <i class="fas fa-search"></i> Detection Models
+                            </button>
+                            <button class="metrics-category-btn" onclick="showMetricsCategory('trajectory')" data-category="trajectory">
+                                <i class="fas fa-route"></i> Trajectory Models
+                            </button>
+                            <button class="metrics-category-btn" onclick="showMetricsCategory('comparison')" data-category="comparison">
+                                <i class="fas fa-balance-scale"></i> Model Comparison
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Overview Category -->
+                    <div id="metrics-overview" class="metrics-category active">
+                        <div class="grid grid-2" style="margin-top: 1rem;">
+                            <div class="metric-card" style="background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 8px; padding: 1rem;">
+                                <h4>Training Summary</h4>
+                                <div id="training-summary-content">
+                                    <div style="text-align: center; padding: 2rem;">
+                                        <div class="loading"></div>
+                                        <p>Loading training summary...</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="metric-card" style="background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 8px; padding: 1rem;">
+                                <h4>Model Performance Overview</h4>
+                                <div class="metrics-grid" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; margin-top: 1rem;">
+                                    <div class="metric-item" style="text-align: center; padding: 1rem; background: rgba(0,123,255,0.1); border-radius: 6px;">
+                                        <div class="metric-value" style="font-size: 1.5rem; font-weight: bold; color: var(--primary-color);" id="detection-accuracy">--</div>
+                                        <div class="metric-label" style="font-size: 0.8rem; color: var(--text-secondary);">Detection Accuracy</div>
+                                    </div>
+                                    <div class="metric-item" style="text-align: center; padding: 1rem; background: rgba(40,167,69,0.1); border-radius: 6px;">
+                                        <div class="metric-value" style="font-size: 1.5rem; font-weight: bold; color: #28a745;" id="trajectory-rmse">--</div>
+                                        <div class="metric-label" style="font-size: 0.8rem; color: var(--text-secondary);">Trajectory RMSE</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="card" style="margin-top: 1rem;">
+                            <div class="card-header">
+                                <h4>Recent Training History</h4>
+                            </div>
+                            <div class="plot-container">
+                                <img id="training-history-plot" src="/api/metrics/plot/training_history.png" 
+                                     style="width: 100%; height: auto; border-radius: 8px; cursor: pointer;" 
+                                     onclick="viewFullImage('/api/metrics/plot/training_history.png', 'Training History')"
+                                     onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
+                                <div style="display: none; text-align: center; padding: 2rem; color: var(--text-secondary);">
+                                    Training history plot not available
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Detection Models Category -->
+                    <div id="metrics-detection" class="metrics-category">
+                        <div class="grid grid-2" style="margin-top: 1rem;">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h4>Confusion Matrices</h4>
+                                </div>
+                                <div class="plots-grid" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem;">
+                                    <div class="plot-item">
+                                        <h5>XGBoost</h5>
+                                        <img src="/api/metrics/plot/confusion_matrix_xgb.png" 
+                                             style="width: 100%; height: auto; border-radius: 6px; cursor: pointer;"
+                                             onclick="viewFullImage('/api/metrics/plot/confusion_matrix_xgb.png', 'XGBoost Confusion Matrix')"
+                                             onerror="this.style.display='none';">
+                                    </div>
+                                    <div class="plot-item">
+                                        <h5>Random Forest</h5>
+                                        <img src="/api/metrics/plot/confusion_matrix_rf.png" 
+                                             style="width: 100%; height: auto; border-radius: 6px; cursor: pointer;"
+                                             onclick="viewFullImage('/api/metrics/plot/confusion_matrix_rf.png', 'Random Forest Confusion Matrix')"
+                                             onerror="this.style.display='none';">
+                                    </div>
+                                    <div class="plot-item">
+                                        <h5>LightGBM</h5>
+                                        <img src="/api/metrics/plot/confusion_matrix_lgbm.png" 
+                                             style="width: 100%; height: auto; border-radius: 6px; cursor: pointer;"
+                                             onclick="viewFullImage('/api/metrics/plot/confusion_matrix_lgbm.png', 'LightGBM Confusion Matrix')"
+                                             onerror="this.style.display='none';">
+                                    </div>
+                                    <div class="plot-item">
+                                        <h5>CatBoost</h5>
+                                        <img src="/api/metrics/plot/confusion_matrix_catboost.png" 
+                                             style="width: 100%; height: auto; border-radius: 6px; cursor: pointer;"
+                                             onclick="viewFullImage('/api/metrics/plot/confusion_matrix_catboost.png', 'CatBoost Confusion Matrix')"
+                                             onerror="this.style.display='none';">
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="card">
+                                <div class="card-header">
+                                    <h4>Feature Importance</h4>
+                                </div>
+                                <div class="plots-grid" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem;">
+                                    <div class="plot-item">
+                                        <h5>XGBoost</h5>
+                                        <img src="/api/metrics/plot/feature_importance_xgb.png" 
+                                             style="width: 100%; height: auto; border-radius: 6px; cursor: pointer;"
+                                             onclick="viewFullImage('/api/metrics/plot/feature_importance_xgb.png', 'XGBoost Feature Importance')"
+                                             onerror="this.style.display='none';">
+                                    </div>
+                                    <div class="plot-item">
+                                        <h5>Random Forest</h5>
+                                        <img src="/api/metrics/plot/feature_importance_rf.png" 
+                                             style="width: 100%; height: auto; border-radius: 6px; cursor: pointer;"
+                                             onclick="viewFullImage('/api/metrics/plot/feature_importance_rf.png', 'Random Forest Feature Importance')"
+                                             onerror="this.style.display='none';">
+                                    </div>
+                                    <div class="plot-item">
+                                        <h5>LightGBM</h5>
+                                        <img src="/api/metrics/plot/feature_importance_lgbm.png" 
+                                             style="width: 100%; height: auto; border-radius: 6px; cursor: pointer;"
+                                             onclick="viewFullImage('/api/metrics/plot/feature_importance_lgbm.png', 'LightGBM Feature Importance')"
+                                             onerror="this.style.display='none';">
+                                    </div>
+                                    <div class="plot-item">
+                                        <h5>CatBoost</h5>
+                                        <img src="/api/metrics/plot/feature_importance_catboost.png" 
+                                             style="width: 100%; height: auto; border-radius: 6px; cursor: pointer;"
+                                             onclick="viewFullImage('/api/metrics/plot/feature_importance_catboost.png', 'CatBoost Feature Importance')"
+                                             onerror="this.style.display='none';">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Trajectory Models Category -->
+                    <div id="metrics-trajectory" class="metrics-category">
+                        <div class="card" style="margin-top: 1rem;">
+                            <div class="card-header">
+                                <h4>Trajectory Prediction Results</h4>
+                            </div>
+                            <div class="plot-container">
+                                <img src="/api/metrics/plot/trajectory_predictions.png" 
+                                     style="width: 100%; height: auto; border-radius: 8px; cursor: pointer;"
+                                     onclick="viewFullImage('/api/metrics/plot/trajectory_predictions.png', 'Trajectory Predictions')"
+                                     onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
+                                <div style="display: none; text-align: center; padding: 2rem; color: var(--text-secondary);">
+                                    Trajectory predictions plot not available
+                                </div>
+                            </div>
+                        </div>
+                        <div class="card" style="margin-top: 1rem;">
+                            <div class="card-header">
+                                <h4>Trajectory Metrics</h4>
+                            </div>
+                            <div id="trajectory-metrics-content">
+                                <div style="text-align: center; padding: 2rem;">
+                                    <div class="loading"></div>
+                                    <p>Loading trajectory metrics...</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Model Comparison Category -->
+                    <div id="metrics-comparison" class="metrics-category">
+                        <div class="grid grid-2" style="margin-top: 1rem;">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h4>ROC Curves</h4>
+                                </div>
+                                <div class="plot-container">
+                                    <img src="/api/metrics/plot/roc_curves.png" 
+                                         style="width: 100%; height: auto; border-radius: 8px; cursor: pointer;"
+                                         onclick="viewFullImage('/api/metrics/plot/roc_curves.png', 'ROC Curves')"
+                                         onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
+                                    <div style="display: none; text-align: center; padding: 2rem; color: var(--text-secondary);">
+                                        ROC curves plot not available
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="card">
+                                <div class="card-header">
+                                    <h4>Precision-Recall Curves</h4>
+                                </div>
+                                <div class="plot-container">
+                                    <img src="/api/metrics/plot/precision_recall_curves.png" 
+                                         style="width: 100%; height: auto; border-radius: 8px; cursor: pointer;"
+                                         onclick="viewFullImage('/api/metrics/plot/precision_recall_curves.png', 'Precision-Recall Curves')"
+                                         onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
+                                    <div style="display: none; text-align: center; padding: 2rem; color: var(--text-secondary);">
+                                        Precision-recall curves plot not available
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="card" style="margin-top: 1rem;">
+                            <div class="card-header">
+                                <h4>Model Comparison Summary</h4>
+                            </div>
+                            <div class="plot-container">
+                                <img src="/api/metrics/plot/model_comparison.png" 
+                                     style="width: 100%; height: auto; border-radius: 8px; cursor: pointer;"
+                                     onclick="viewFullImage('/api/metrics/plot/model_comparison.png', 'Model Comparison')"
+                                     onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
+                                <div style="display: none; text-align: center; padding: 2rem; color: var(--text-secondary);">
+                                    Model comparison plot not available
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -2117,6 +2463,244 @@
                 createAlertsTimeline();
             }, 120000);
         });
+
+        // Metrics Tab Functions
+        function showMetricsCategory(category) {
+            // Hide all categories
+            document.querySelectorAll('.metrics-category').forEach(cat => {
+                cat.classList.remove('active');
+            });
+            
+            // Remove active from all buttons
+            document.querySelectorAll('.metrics-category-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            
+            // Show selected category
+            document.getElementById(`metrics-${category}`).classList.add('active');
+            document.querySelector(`[data-category="${category}"]`).classList.add('active');
+            
+            // Load data for the category
+            if (category === 'overview') {
+                loadTrainingSummary();
+                loadModelPerformanceOverview();
+            } else if (category === 'trajectory') {
+                loadTrajectoryMetrics();
+            }
+        }
+
+        function refreshMetrics() {
+            showLoadingState();
+            // Reload all metric data
+            loadTrainingSummary();
+            loadModelPerformanceOverview();
+            loadTrajectoryMetrics();
+            
+            // Force reload images by adding timestamp
+            const timestamp = new Date().getTime();
+            document.querySelectorAll('.metrics-category img').forEach(img => {
+                const src = img.src.split('?')[0];
+                img.src = `${src}?t=${timestamp}`;
+            });
+            
+            showSuccessMessage('Metrics refreshed successfully');
+        }
+
+        function downloadAllMetrics() {
+            showLoadingState();
+            fetch('/api/metrics/download-all', {
+                method: 'POST'
+            })
+            .then(response => response.blob())
+            .then(blob => {
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `training_metrics_${new Date().toISOString().split('T')[0]}.zip`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                window.URL.revokeObjectURL(url);
+                showSuccessMessage('All metrics downloaded successfully');
+            })
+            .catch(error => {
+                console.error('Download error:', error);
+                showErrorMessage('Failed to download metrics');
+            });
+        }
+
+        function loadTrainingSummary() {
+            fetch('/api/metrics/summary')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        displayTrainingSummary(data.summary);
+                    } else {
+                        document.getElementById('training-summary-content').innerHTML = 
+                            '<p style="text-align: center; color: var(--text-secondary);">Training summary not available</p>';
+                    }
+                })
+                .catch(error => {
+                    console.error('Error loading training summary:', error);
+                    document.getElementById('training-summary-content').innerHTML = 
+                        '<p style="text-align: center; color: var(--danger-color);">Error loading summary</p>';
+                });
+        }
+
+        function displayTrainingSummary(summary) {
+            const container = document.getElementById('training-summary-content');
+            
+            // Format the training date
+            let formattedDate = 'N/A';
+            if (summary.training_date && summary.training_date !== 'N/A') {
+                const date = new Date(summary.training_date);
+                formattedDate = date.toLocaleDateString() + ' ' + date.toLocaleTimeString();
+            }
+            
+            container.innerHTML = `
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                    <div>
+                        <strong>Training Date:</strong><br>
+                        <span style="color: var(--text-secondary);">${formattedDate}</span>
+                    </div>
+                    <div>
+                        <strong>Dataset Size:</strong><br>
+                        <span style="color: var(--text-secondary);">${summary.dataset_size || 'N/A'}</span>
+                    </div>
+                    <div>
+                        <strong>Training Duration:</strong><br>
+                        <span style="color: var(--text-secondary);">${summary.training_duration || 'N/A'}</span>
+                    </div>
+                    <div>
+                        <strong>Best Model:</strong><br>
+                        <span style="color: var(--success-color);">${summary.best_model || 'N/A'}</span>
+                    </div>
+                    ${summary.features_count ? `
+                    <div>
+                        <strong>Features Used:</strong><br>
+                        <span style="color: var(--text-secondary);">${summary.features_count}</span>
+                    </div>
+                    ` : ''}
+                    ${summary.device_used ? `
+                    <div>
+                        <strong>Device Used:</strong><br>
+                        <span style="color: var(--text-secondary);">${summary.device_used.toUpperCase()}</span>
+                    </div>
+                    ` : ''}
+                </div>
+            `;
+        }
+
+        function loadModelPerformanceOverview() {
+            fetch('/api/metrics/performance-overview')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        document.getElementById('detection-accuracy').textContent = 
+                            (data.detection_accuracy * 100).toFixed(1) + '%';
+                        document.getElementById('trajectory-rmse').textContent = 
+                            data.trajectory_rmse.toFixed(3);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error loading performance overview:', error);
+                    document.getElementById('detection-accuracy').textContent = 'Error';
+                    document.getElementById('trajectory-rmse').textContent = 'Error';
+                });
+        }
+
+        function loadTrajectoryMetrics() {
+            fetch('/api/metrics/trajectory')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        displayTrajectoryMetrics(data.metrics);
+                    } else {
+                        document.getElementById('trajectory-metrics-content').innerHTML = 
+                            '<p style="text-align: center; color: var(--text-secondary);">Trajectory metrics not available</p>';
+                    }
+                })
+                .catch(error => {
+                    console.error('Error loading trajectory metrics:', error);
+                    document.getElementById('trajectory-metrics-content').innerHTML = 
+                        '<p style="text-align: center; color: var(--danger-color);">Error loading metrics</p>';
+                });
+        }
+
+        function displayTrajectoryMetrics(metrics) {
+            const container = document.getElementById('trajectory-metrics-content');
+            container.innerHTML = `
+                <div style="margin-bottom: 1rem;">
+                    ${metrics.model_name ? `<h5 style="color: var(--primary-color); margin: 0 0 1rem 0;">${metrics.model_name}</h5>` : ''}
+                </div>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1rem;">
+                    <div style="text-align: center; padding: 1rem; background: rgba(40,167,69,0.1); border-radius: 6px;">
+                        <div style="font-size: 1.5rem; font-weight: bold; color: #28a745;">${metrics.rmse?.toFixed(4) || '--'}</div>
+                        <div style="font-size: 0.8rem; color: var(--text-secondary);">RMSE</div>
+                    </div>
+                    <div style="text-align: center; padding: 1rem; background: rgba(0,123,255,0.1); border-radius: 6px;">
+                        <div style="font-size: 1.5rem; font-weight: bold; color: var(--primary-color);">${metrics.mae?.toFixed(4) || '--'}</div>
+                        <div style="font-size: 0.8rem; color: var(--text-secondary);">MAE</div>
+                    </div>
+                    <div style="text-align: center; padding: 1rem; background: rgba(255,193,7,0.1); border-radius: 6px;">
+                        <div style="font-size: 1.5rem; font-weight: bold; color: #ffc107;">${metrics.r2_score?.toFixed(4) || '--'}</div>
+                        <div style="font-size: 0.8rem; color: var(--text-secondary);">R² Score</div>
+                    </div>
+                    ${metrics.mse ? `
+                    <div style="text-align: center; padding: 1rem; background: rgba(108,117,125,0.1); border-radius: 6px;">
+                        <div style="font-size: 1.5rem; font-weight: bold; color: #6c757d;">${metrics.mse?.toFixed(4) || '--'}</div>
+                        <div style="font-size: 0.8rem; color: var(--text-secondary);">MSE</div>
+                    </div>
+                    ` : ''}
+                    ${metrics.max_error ? `
+                    <div style="text-align: center; padding: 1rem; background: rgba(220,53,69,0.1); border-radius: 6px;">
+                        <div style="font-size: 1.5rem; font-weight: bold; color: var(--danger-color);">${metrics.max_error?.toFixed(3) || '--'}</div>
+                        <div style="font-size: 0.8rem; color: var(--text-secondary);">Max Error</div>
+                    </div>
+                    ` : ''}
+                </div>
+            `;
+        }
+
+        function viewFullImage(src, title) {
+            // Create modal
+            const modal = document.createElement('div');
+            modal.className = 'image-modal';
+            modal.innerHTML = `
+                <span class="image-modal-close">&times;</span>
+                <img class="image-modal-content" src="${src}" alt="${title}">
+            `;
+            
+            document.body.appendChild(modal);
+            modal.style.display = 'block';
+            
+            // Close modal on click
+            modal.onclick = function() {
+                document.body.removeChild(modal);
+            };
+            
+            // Close on escape key
+            document.addEventListener('keydown', function(e) {
+                if (e.key === 'Escape' && modal.parentNode) {
+                    document.body.removeChild(modal);
+                }
+            }, { once: true });
+        }
+
+        function showLoadingState() {
+            // Add loading indicators where needed
+            console.log('Loading metrics...');
+        }
+
+        function showSuccessMessage(message) {
+            // You can implement a toast notification here
+            console.log('Success:', message);
+        }
+
+        function showErrorMessage(message) {
+            // You can implement a toast notification here
+            console.error('Error:', message);
+        }
     </script>
 </body>
 </html>
